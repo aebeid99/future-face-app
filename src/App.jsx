@@ -19,6 +19,7 @@ import RoadmapPage      from './pages/app/RoadmapPage.jsx'
 import BillingPage      from './pages/app/BillingPage.jsx'
 import SettingsPage     from './pages/app/SettingsPage.jsx'
 import AuditPage        from './pages/app/AuditPage.jsx'
+import SalesPage        from './pages/app/SalesPage.jsx'
 
 // ─── Router ───────────────────────────────────────────────────
 function Router() {
@@ -49,6 +50,7 @@ function Router() {
     billing:   <BillingPage />,
     settings:  <SettingsPage />,
     audit:     <AuditPage />,
+    sales:     <SalesPage />,
   }
 
   const content = appPages[page] ?? <DashboardPage />

@@ -19,6 +19,7 @@ export const STRINGS = {
     sidebar_billing:    'Billing',
     sidebar_settings:   'Settings',
     sidebar_audit:      'Audit Log',
+    sidebar_sales:      'Sales Team',
     sidebar_help:       'Help & Support',
 
     // Dashboard
@@ -116,6 +117,7 @@ export const STRINGS = {
     sidebar_billing:    'الفواتير',
     sidebar_settings:   'الإعدادات',
     sidebar_audit:      'سجل المراجعة',
+    sidebar_sales:      'فريق المبيعات',
     sidebar_help:       'المساعدة والدعم',
 
     // Dashboard

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   LayoutDashboard, Target, Users2, Sparkles, Map,
   CreditCard, Settings, ScrollText, HelpCircle,
-  ChevronLeft, ChevronRight, LogOut,
+  ChevronLeft, ChevronRight, LogOut, TrendingUp,
 } from 'lucide-react'
 import Logo from '../ui/Logo.jsx'
 import Avatar from '../ui/Avatar.jsx'
@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { id: 'robox',     icon: Users2,          key: 'sidebar_robox',        group: 'main', product: 'robox'    },
   { id: 'ai_pilot',  icon: Sparkles,        key: 'sidebar_ai_pilot',     group: 'main', product: 'aiPilot'  },
   { id: 'roadmap',   icon: Map,             key: 'sidebar_roadmap',      group: 'main' },
+  { id: 'sales',     icon: TrendingUp,      key: 'sidebar_sales',        group: 'main' },
   { id: 'billing',   icon: CreditCard,      key: 'sidebar_billing',      group: 'bottom' },
   { id: 'settings',  icon: Settings,        key: 'sidebar_settings',     group: 'bottom' },
   { id: 'audit',     icon: ScrollText,      key: 'sidebar_audit',        group: 'bottom' },
