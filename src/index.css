@@ -1,0 +1,134 @@
+/* ─── Google Fonts (must precede @tailwind) ─── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Arabic:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Base ─── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  background-color: #0A0D18;
+  color: #F0F2FF;
+  font-family: 'Inter', system-ui, sans-serif;
+  line-height: 1.6;
+}
+
+/* ─── RTL ─── */
+[dir="rtl"] {
+  font-family: 'Noto Sans Arabic', 'Inter', system-ui, sans-serif;
+}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0A0D18; }
+::-webkit-scrollbar-thumb { background: #1E2540; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #2A3355; }
+
+/* ─── Focus Ring ─── */
+:focus-visible {
+  outline: 2px solid #D4920E;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ─── Selection ─── */
+::selection {
+  background-color: rgba(212, 146, 14, 0.3);
+  color: #F0F2FF;
+}
+
+/* ─── Animations ─── */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #131829 25%, #1E2540 50%, #131829 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ─── Transitions ─── */
+.transition-all { transition: all 0.15s ease; }
+
+/* ─── Gradient Utilities ─── */
+.gradient-gold {
+  background: linear-gradient(135deg, #D4920E 0%, #F5A623 100%);
+}
+
+.gradient-dark {
+  background: linear-gradient(135deg, #0A0D18 0%, #131829 100%);
+}
+
+.text-gradient-gold {
+  background: linear-gradient(135deg, #D4920E, #F5A623);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Custom Utilities ─── */
+.glass {
+  background: rgba(19, 24, 41, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(30, 37, 64, 0.8);
+}
+
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  border-color: #2A3355;
+}
+
+/* ─── Sidebar ─── */
+.sidebar-item {
+  @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-ink-muted transition-all cursor-pointer;
+}
+
+.sidebar-item:hover {
+  @apply bg-surface-hover text-ink;
+}
+
+.sidebar-item.active {
+  @apply bg-gold/10 text-gold;
+}
+
+/* ─── Progress Ring ─── */
+.progress-ring__circle {
+  transition: stroke-dashoffset 0.5s ease;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+
+/* ─── Table ─── */
+.ff-table { @apply w-full border-collapse; }
+.ff-table th { @apply text-left text-xs font-semibold text-ink-muted uppercase tracking-wider px-4 py-3 border-b border-border; }
+.ff-table td { @apply px-4 py-3 text-sm border-b border-border/50; }
+.ff-table tr:hover td { @apply bg-surface-hover/30; }
+
+/* ─── Form ─── */
+.ff-input {
+  @apply w-full bg-dark-100 border border-border rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder-ink-faint
+         focus:outline-none focus:border-gold/60 focus:ring-1 focus:ring-gold/30 transition-all;
+}
+
+.ff-label {
+  @apply block text-xs font-medium text-ink-muted mb-1.5;
+}
+
+/* ─── Toasts (Sonner) ─── */
+[data-sonner-toaster] { font-family: 'Inter', sans-serif !important; }
