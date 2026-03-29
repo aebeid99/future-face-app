@@ -90,6 +90,28 @@ export function reducer(state, action) {
       }
     }
 
+    case A.KR_CREATE: {
+      return {
+        ...state,
+        okrs: state.okrs.map(o => {
+          if (o.id !== action.okrId) return o
+          const newKr = {
+            id: `kr_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
+            title: action.title,
+            current: Number(action.current) || 0,
+            target: Number(action.target) || 100,
+            unit: action.unit || '%',
+            status: 'on_track',
+          }
+          const krs = [...(o.keyResults || []), newKr]
+          const progress = Math.round(
+            krs.reduce((s, kr) => s + Math.min((kr.current / kr.target) * 100, 100), 0) / krs.length
+          )
+          return { ...o, keyResults: krs, progress }
+        }),
+      }
+    }
+
     case A.KR_UPDATE: {
       return {
         ...state,
@@ -99,7 +121,21 @@ export function reducer(state, action) {
             kr.id === action.krId ? { ...kr, ...action.updates } : kr
           )
           const progress = krs.length
-            ? Math.round(krs.reduce((s, kr) => s + (kr.current / kr.target * 100), 0) / krs.length)
+            ? Math.round(krs.reduce((s, kr) => s + Math.min((kr.current / kr.target) * 100, 100), 0) / krs.length)
+            : 0
+          return { ...o, keyResults: krs, progress }
+        }),
+      }
+    }
+
+    case A.KR_DELETE: {
+      return {
+        ...state,
+        okrs: state.okrs.map(o => {
+          if (o.id !== action.okrId) return o
+          const krs = o.keyResults.filter(kr => kr.id !== action.krId)
+          const progress = krs.length
+            ? Math.round(krs.reduce((s, kr) => s + Math.min((kr.current / kr.target) * 100, 100), 0) / krs.length)
             : 0
           return { ...o, keyResults: krs, progress }
         }),
