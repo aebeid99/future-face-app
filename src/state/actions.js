@@ -23,6 +23,9 @@ export const KR_UPDATE    = 'KR_UPDATE'
 export const KR_DELETE    = 'KR_DELETE'
 export const INITIATIVE_CREATE = 'INITIATIVE_CREATE'
 export const INITIATIVE_UPDATE = 'INITIATIVE_UPDATE'
+export const INITIATIVE_DELETE = 'INITIATIVE_DELETE'
+export const CHECKIN_ADD       = 'CHECKIN_ADD'
+export const CHECKIN_DELETE    = 'CHECKIN_DELETE'
 
 // ─── AI Chat ──────────────────────────────────────────────────
 export const CHAT_ADD          = 'CHAT_ADD'

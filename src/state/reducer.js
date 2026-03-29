@@ -142,6 +142,79 @@ export function reducer(state, action) {
       }
     }
 
+    // ─── Initiatives ──────────────────────────────────────────
+    case A.INITIATIVE_CREATE: {
+      return {
+        ...state,
+        okrs: state.okrs.map(o => {
+          if (o.id !== action.okrId) return o
+          const item = {
+            id: `ini_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+            title:  action.title,
+            owner:  action.owner  || '',
+            dueDate: action.dueDate || '',
+            status: 'not_started',
+            krId:   action.krId   || null,
+          }
+          return { ...o, initiatives: [...(o.initiatives || []), item] }
+        }),
+      }
+    }
+
+    case A.INITIATIVE_UPDATE: {
+      return {
+        ...state,
+        okrs: state.okrs.map(o => {
+          if (o.id !== action.okrId) return o
+          return {
+            ...o,
+            initiatives: (o.initiatives || []).map(ini =>
+              ini.id === action.initiativeId ? { ...ini, ...action.updates } : ini
+            ),
+          }
+        }),
+      }
+    }
+
+    case A.INITIATIVE_DELETE: {
+      return {
+        ...state,
+        okrs: state.okrs.map(o => {
+          if (o.id !== action.okrId) return o
+          return { ...o, initiatives: (o.initiatives || []).filter(ini => ini.id !== action.initiativeId) }
+        }),
+      }
+    }
+
+    // ─── Check-ins ────────────────────────────────────────────
+    case A.CHECKIN_ADD: {
+      return {
+        ...state,
+        okrs: state.okrs.map(o => {
+          if (o.id !== action.okrId) return o
+          const checkin = {
+            id: `ci_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+            date:             new Date().toISOString(),
+            author:           action.author || 'You',
+            note:             action.note,
+            progressSnapshot: o.progress,
+            status:           action.status || 'on_track',
+          }
+          return { ...o, checkins: [checkin, ...(o.checkins || [])] }
+        }),
+      }
+    }
+
+    case A.CHECKIN_DELETE: {
+      return {
+        ...state,
+        okrs: state.okrs.map(o => {
+          if (o.id !== action.okrId) return o
+          return { ...o, checkins: (o.checkins || []).filter(c => c.id !== action.checkinId) }
+        }),
+      }
+    }
+
     // ─── AI Chat ──────────────────────────────────────────────
     case A.CHAT_ADD:
       return {
@@ -273,7 +346,15 @@ export const INIT_STATE = {
           status: 'on_track',
         },
       ],
-      initiatives: [],
+      initiatives: [
+        { id: 'ini_d1a', title: 'Launch Q2 enterprise outbound campaign', owner: 'Ahmed', dueDate: '2026-05-15', status: 'in_progress', krId: 'kr_demo_1a' },
+        { id: 'ini_d1b', title: 'Define ICP and account scoring model',   owner: 'Ahmed', dueDate: '2026-04-30', status: 'done',        krId: null },
+        { id: 'ini_d1c', title: 'Build ROI calculator for prospects',     owner: 'Ahmed', dueDate: '2026-06-01', status: 'not_started', krId: 'kr_demo_1b' },
+      ],
+      checkins: [
+        { id: 'ci_d1a', date: '2026-04-14T09:00:00.000Z', author: 'Ahmed', note: 'Closed 2 new accounts this week. Pipeline looks strong heading into month-end.', progressSnapshot: 42, status: 'on_track' },
+        { id: 'ci_d1b', date: '2026-04-07T09:00:00.000Z', author: 'Ahmed', note: 'Good momentum on outbound. ARR target at risk — need to revisit deal sizes.', progressSnapshot: 31, status: 'at_risk' },
+      ],
     },
     {
       id: 'okr_demo_2',
@@ -303,7 +384,13 @@ export const INIT_STATE = {
           status: 'off_track',
         },
       ],
-      initiatives: [],
+      initiatives: [
+        { id: 'ini_d2a', title: 'Redesign onboarding flow',       owner: 'Ahmed', dueDate: '2026-05-01', status: 'in_progress', krId: 'kr_demo_2b' },
+        { id: 'ini_d2b', title: 'Run quarterly NPS survey',       owner: 'Ahmed', dueDate: '2026-04-20', status: 'blocked',     krId: 'kr_demo_2a' },
+      ],
+      checkins: [
+        { id: 'ci_d2a', date: '2026-04-14T09:00:00.000Z', author: 'Ahmed', note: 'NPS survey delayed — engineering bandwidth constrained. Escalating.', progressSnapshot: 28, status: 'at_risk' },
+      ],
     },
     {
       id: 'okr_demo_3',
@@ -317,6 +404,7 @@ export const INIT_STATE = {
       createdAt: '2026-04-01T08:00:00.000Z',
       keyResults: [],
       initiatives: [],
+      checkins: [],
     },
   ],
   members: [],
