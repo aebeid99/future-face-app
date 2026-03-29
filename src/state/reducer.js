@@ -1,4 +1,15 @@
 import * as A from './actions.js'
+import { progressStatus } from '../utils/formatting.js'
+
+// ── Derive OKR progress + status from its key results ──────────
+function recalcOkr(okr, krs) {
+  const progress = krs.length
+    ? Math.round(krs.reduce((s, kr) => s + Math.min((kr.current / kr.target) * 100, 100), 0) / krs.length)
+    : okr.progress   // preserve original progress when no KRs yet
+  const allDone = krs.length > 0 && krs.every(kr => kr.status === 'completed')
+  const status  = allDone ? 'completed' : progressStatus(progress)
+  return { ...okr, keyResults: krs, progress, status }
+}
 
 export function reducer(state, action) {
   switch (action.type) {
@@ -96,18 +107,14 @@ export function reducer(state, action) {
         okrs: state.okrs.map(o => {
           if (o.id !== action.okrId) return o
           const newKr = {
-            id: `kr_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
+            id: `kr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
             title: action.title,
             current: Number(action.current) || 0,
             target: Number(action.target) || 100,
             unit: action.unit || '%',
             status: 'on_track',
           }
-          const krs = [...(o.keyResults || []), newKr]
-          const progress = Math.round(
-            krs.reduce((s, kr) => s + Math.min((kr.current / kr.target) * 100, 100), 0) / krs.length
-          )
-          return { ...o, keyResults: krs, progress }
+          return recalcOkr(o, [...(o.keyResults || []), newKr])
         }),
       }
     }
@@ -117,13 +124,10 @@ export function reducer(state, action) {
         ...state,
         okrs: state.okrs.map(o => {
           if (o.id !== action.okrId) return o
-          const krs = o.keyResults.map(kr =>
+          const krs = (o.keyResults || []).map(kr =>
             kr.id === action.krId ? { ...kr, ...action.updates } : kr
           )
-          const progress = krs.length
-            ? Math.round(krs.reduce((s, kr) => s + Math.min((kr.current / kr.target) * 100, 100), 0) / krs.length)
-            : 0
-          return { ...o, keyResults: krs, progress }
+          return recalcOkr(o, krs)
         }),
       }
     }
@@ -133,11 +137,7 @@ export function reducer(state, action) {
         ...state,
         okrs: state.okrs.map(o => {
           if (o.id !== action.okrId) return o
-          const krs = o.keyResults.filter(kr => kr.id !== action.krId)
-          const progress = krs.length
-            ? Math.round(krs.reduce((s, kr) => s + Math.min((kr.current / kr.target) * 100, 100), 0) / krs.length)
-            : 0
-          return { ...o, keyResults: krs, progress }
+          return recalcOkr(o, (o.keyResults || []).filter(kr => kr.id !== action.krId))
         }),
       }
     }
@@ -236,7 +236,89 @@ export const INIT_STATE = {
     userCount: 1,
   },
 
-  okrs: [],
+  okrs: [
+    {
+      id: 'okr_demo_1',
+      title: 'Grow enterprise customer base in KSA',
+      owner: 'Ahmed',
+      quarter: 'Q2 2026',
+      status: 'on_track',
+      progress: 42,
+      tags: ['growth', 'enterprise'],
+      vision2030: null,
+      createdAt: '2026-04-01T08:00:00.000Z',
+      keyResults: [
+        {
+          id: 'kr_demo_1a',
+          title: 'Close 12 new enterprise accounts',
+          current: 5,
+          target: 12,
+          unit: 'deals',
+          status: 'on_track',
+        },
+        {
+          id: 'kr_demo_1b',
+          title: 'Achieve SAR 2.4M in new ARR',
+          current: 840000,
+          target: 2400000,
+          unit: 'SAR',
+          status: 'at_risk',
+        },
+        {
+          id: 'kr_demo_1c',
+          title: 'Increase pipeline coverage to 3×',
+          current: 2.1,
+          target: 3,
+          unit: 'score',
+          status: 'on_track',
+        },
+      ],
+      initiatives: [],
+    },
+    {
+      id: 'okr_demo_2',
+      title: 'Deliver world-class product experience',
+      owner: 'Ahmed',
+      quarter: 'Q2 2026',
+      status: 'at_risk',
+      progress: 28,
+      tags: ['product', 'cx'],
+      vision2030: null,
+      createdAt: '2026-04-01T08:00:00.000Z',
+      keyResults: [
+        {
+          id: 'kr_demo_2a',
+          title: 'Reach NPS score of 65+',
+          current: 48,
+          target: 65,
+          unit: 'NPS',
+          status: 'at_risk',
+        },
+        {
+          id: 'kr_demo_2b',
+          title: 'Reduce time-to-value to under 3 days',
+          current: 7,
+          target: 3,
+          unit: 'days',
+          status: 'off_track',
+        },
+      ],
+      initiatives: [],
+    },
+    {
+      id: 'okr_demo_3',
+      title: 'Build a high-performance sales team',
+      owner: 'Ahmed',
+      quarter: 'Q2 2026',
+      status: 'on_track',
+      progress: 0,
+      tags: ['people'],
+      vision2030: null,
+      createdAt: '2026-04-01T08:00:00.000Z',
+      keyResults: [],
+      initiatives: [],
+    },
+  ],
   members: [],
   chatHistory: [],
 }

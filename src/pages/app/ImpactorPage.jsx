@@ -92,50 +92,127 @@ function KrAddRow({ okrId, onDone }) {
   )
 }
 
+// Status options for KR
+const KR_STATUSES = [
+  { value: 'on_track',  label: 'On Track'  },
+  { value: 'at_risk',   label: 'At Risk'   },
+  { value: 'off_track', label: 'Off Track' },
+  { value: 'completed', label: 'Completed' },
+]
+
 // ── KR display row with inline edit ──────────────────────────────────────────
-function KrRow({ kr, okrId, statusLabel }) {
+function KrRow({ kr, okrId }) {
   const { dispatch } = useApp()
-  const [editing, setEditing] = useState(false)
-  const [val, setVal] = useState(String(kr.current))
+
+  // Progress (number) edit state
+  const [editingVal, setEditingVal] = useState(false)
+  const [val, setVal]               = useState(String(kr.current))
+
+  // Title edit state
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [titleVal, setTitleVal]         = useState(kr.title)
+  const titleInputRef = useRef(null)
+
+  // Keep local state in sync when KR updates externally
+  useEffect(() => { setVal(String(kr.current)) }, [kr.current])
+  useEffect(() => { setTitleVal(kr.title) },       [kr.title])
+  useEffect(() => { if (editingTitle) titleInputRef.current?.focus() }, [editingTitle])
 
   const pct = Math.min(Math.round((kr.current / kr.target) * 100), 100)
 
-  const commitEdit = () => {
+  const commitVal = () => {
     const n = parseFloat(val)
-    if (!isNaN(n)) dispatch({ type: KR_UPDATE, okrId, krId: kr.id, updates: { current: n } })
-    setEditing(false)
+    if (!isNaN(n) && n !== kr.current) {
+      dispatch({ type: KR_UPDATE, okrId, krId: kr.id, updates: { current: n } })
+    }
+    setEditingVal(false)
   }
 
+  const commitTitle = () => {
+    const trimmed = titleVal.trim()
+    if (trimmed && trimmed !== kr.title) {
+      dispatch({ type: KR_UPDATE, okrId, krId: kr.id, updates: { title: trimmed } })
+    } else {
+      setTitleVal(kr.title) // revert if blank or unchanged
+    }
+    setEditingTitle(false)
+  }
+
+  const setStatus = (s) => dispatch({ type: KR_UPDATE, okrId, krId: kr.id, updates: { status: s } })
+
   return (
-    <div className="flex items-center gap-3 p-2.5 rounded-lg bg-dark hover:bg-dark/80 group transition-colors">
-      <ProgressRing value={pct} size={32} stroke={3} />
+    <div className="flex items-center gap-3 p-2.5 rounded-lg bg-dark hover:bg-dark/60 group transition-colors">
+      {/* Progress ring */}
+      <ProgressRing value={pct} size={32} stroke={3} className="shrink-0" />
+
+      {/* Title + progress numbers */}
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium text-ink leading-tight truncate">{kr.title}</p>
-        <div className="flex items-center gap-1.5 mt-1">
-          {editing ? (
+        {editingTitle ? (
+          <input
+            ref={titleInputRef}
+            value={titleVal}
+            onChange={e => setTitleVal(e.target.value)}
+            onBlur={commitTitle}
+            onKeyDown={e => {
+              if (e.key === 'Enter')  commitTitle()
+              if (e.key === 'Escape') { setTitleVal(kr.title); setEditingTitle(false) }
+            }}
+            className="w-full bg-surface border border-gold/60 rounded px-2 py-0.5 text-xs text-ink outline-none leading-tight"
+          />
+        ) : (
+          <p
+            className="text-xs font-medium text-ink leading-tight truncate cursor-text hover:text-gold/90 transition-colors"
+            onDoubleClick={() => setEditingTitle(true)}
+            title="Double-click to edit title"
+          >
+            {kr.title}
+          </p>
+        )}
+
+        {/* Current / Target inline edit */}
+        <div className="flex items-center gap-1 mt-1">
+          {editingVal ? (
             <input
               autoFocus
               type="number"
               value={val}
               onChange={e => setVal(e.target.value)}
-              onBlur={commitEdit}
-              onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditing(false) }}
+              onBlur={commitVal}
+              onKeyDown={e => {
+                if (e.key === 'Enter')  commitVal()
+                if (e.key === 'Escape') { setVal(String(kr.current)); setEditingVal(false) }
+              }}
               className="w-16 bg-surface border border-gold/60 rounded px-1.5 py-0.5 text-xs text-ink outline-none"
             />
           ) : (
-            <button onClick={() => setEditing(true)}
-              className="text-[10px] text-ink-muted hover:text-gold transition-colors cursor-text"
-              title="Click to update progress">
-              {kr.current} / {kr.target} {kr.unit}
+            <button
+              onClick={() => setEditingVal(true)}
+              className="text-[10px] text-ink-muted hover:text-gold transition-colors"
+              title="Click to update current value"
+            >
+              {kr.current.toLocaleString()} / {kr.target.toLocaleString()} {kr.unit}
             </button>
           )}
+          <span className="text-[10px] text-ink-faint ml-1">({pct}%)</span>
         </div>
       </div>
-      <Badge variant={kr.status || 'on_track'} size="xs">{statusLabel(kr.status || 'on_track')}</Badge>
+
+      {/* Status dropdown */}
+      <select
+        value={kr.status || 'on_track'}
+        onChange={e => setStatus(e.target.value)}
+        className="bg-dark border border-border rounded-lg text-[10px] text-ink-muted px-1.5 py-1 outline-none focus:border-gold/40 cursor-pointer hover:border-gold/30 transition-colors shrink-0"
+        style={{ maxWidth: 80 }}
+      >
+        {KR_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+      </select>
+
+      {/* Delete — visible on hover */}
       <button
         onClick={() => dispatch({ type: KR_DELETE, okrId, krId: kr.id })}
-        className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded hover:bg-red-500/10 text-ink-muted hover:text-red-400 flex items-center justify-center transition-all"
-        title="Delete KR">
+        className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded hover:bg-red-500/10 text-ink-muted hover:text-red-400 flex items-center justify-center transition-all shrink-0"
+        title="Delete KR"
+      >
         <Trash2 size={11} />
       </button>
     </div>
@@ -296,15 +373,13 @@ export default function ImpactorPage() {
                     <p className="text-xs font-semibold text-ink-muted uppercase tracking-wider">
                       Key Results {okr.keyResults?.length > 0 && `(${okr.keyResults.length})`}
                     </p>
-                    {!addingKr[okr.id] && (
-                      <Btn
-                        variant="ghost" size="xs"
-                        className="text-ink-muted hover:text-gold"
-                        onClick={() => openAddKr(okr.id)}
-                      >
-                        <Plus size={11} /> Add KR
-                      </Btn>
-                    )}
+                    <Btn
+                      variant="ghost" size="xs"
+                      className={`text-ink-muted hover:text-gold transition-opacity ${addingKr[okr.id] ? 'opacity-30 pointer-events-none' : ''}`}
+                      onClick={() => openAddKr(okr.id)}
+                    >
+                      <Plus size={11} /> Add KR
+                    </Btn>
                   </div>
 
                   {(!okr.keyResults || okr.keyResults.length === 0) && !addingKr[okr.id] && (
@@ -318,7 +393,7 @@ export default function ImpactorPage() {
                   )}
 
                   {okr.keyResults?.map(kr => (
-                    <KrRow key={kr.id} kr={kr} okrId={okr.id} statusLabel={statusLabel} />
+                    <KrRow key={kr.id} kr={kr} okrId={okr.id} />
                   ))}
 
                   {addingKr[okr.id] && (
