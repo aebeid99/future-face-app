@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { Sparkles, Shield, Calendar, Bot, AlertTriangle, TrendingDown, Send, RefreshCw } from 'lucide-react'
+import { Sparkles, Shield, Calendar, Bot, AlertTriangle, TrendingDown, Send, RefreshCw, Zap } from 'lucide-react'
 import Card, { CardHeader } from '../../components/ui/Card.jsx'
 import Btn from '../../components/ui/Btn.jsx'
 import Badge from '../../components/ui/Badge.jsx'
 import { useApp } from '../../state/AppContext.jsx'
-import { NAV } from '../../state/actions.js'
+import { NAV, SUB_UPDATE } from '../../state/actions.js'
 import { t } from '../../utils/i18n.js'
 import { chat, SYSTEM_PROMPTS } from '../../api/anthropic.js'
 
@@ -19,7 +19,11 @@ export default function AIPilotPage() {
   const { lang, org, okrs } = state
   const tr = (k) => t(k, lang)
 
-  const isLocked = org.subs.impactor === 'free' || org.subs.robox === 'free'
+  // Unlocked when BOTH Impactor and Robox are on a paid plan (pro or enterprise)
+  const PAID = ['pro', 'enterprise']
+  const impactorPaid = PAID.includes(org.subs?.impactor)
+  const roboxPaid    = PAID.includes(org.subs?.robox)
+  const isLocked = !impactorPaid || !roboxPaid
 
   const [briefing,   setBriefing]   = useState(null)
   const [loading,    setLoading]    = useState(false)
@@ -42,6 +46,11 @@ export default function AIPilotPage() {
   }
 
   if (isLocked) {
+    const simulateUnlock = () => {
+      if (!impactorPaid) dispatch({ type: SUB_UPDATE, product: 'impactor', plan: 'pro' })
+      if (!roboxPaid)    dispatch({ type: SUB_UPDATE, product: 'robox',    plan: 'pro' })
+    }
+
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center animate-fade-in">
         <div className="w-16 h-16 rounded-2xl bg-gold/10 flex items-center justify-center mb-5">
@@ -50,20 +59,42 @@ export default function AIPilotPage() {
         <h2 className="text-xl font-bold mb-2">
           {lang === 'ar' ? 'افتح إمكانيات الذكاء الاصطناعي' : 'Unlock AI Pilot'}
         </h2>
-        <p className="text-ink-muted max-w-sm mb-6">
+        <p className="text-ink-muted max-w-sm mb-4">
           {lang === 'ar'
             ? 'تتطلب وحدة الذكاء الاصطناعي الاشتراك في كل من إمباكتور Pro وروبوكس Pro.'
-            : 'AI Pilot requires both Impactor Pro and Robox Pro subscriptions to unlock the intelligence layer.'
+            : 'AI Pilot requires both Impactor Pro and Robox Pro to unlock the intelligence layer.'
           }
         </p>
-        <div className="flex gap-3">
+
+        {/* Show which modules are missing */}
+        <div className="flex gap-3 mb-6">
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${
+            impactorPaid ? 'border-success/40 bg-success/10 text-success' : 'border-border bg-surface text-ink-muted'
+          }`}>
+            {impactorPaid ? '✓' : '○'} Impactor Pro
+          </div>
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${
+            roboxPaid ? 'border-success/40 bg-success/10 text-success' : 'border-border bg-surface text-ink-muted'
+          }`}>
+            {roboxPaid ? '✓' : '○'} Robox Pro
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3">
           <Btn onClick={() => dispatch({ type: NAV, page: 'billing' })}>
             {lang === 'ar' ? 'ترقية الآن' : 'Upgrade Now'}
           </Btn>
           <Btn variant="secondary" onClick={() => dispatch({ type: NAV, page: 'pricing' })}>
             {lang === 'ar' ? 'عرض الأسعار' : 'View Pricing'}
           </Btn>
+          <Btn variant="ghost" icon={<Zap size={13} />} onClick={simulateUnlock}
+            className="text-gold hover:bg-gold/10 border border-gold/30">
+            {lang === 'ar' ? 'تجربة Pro (عرض)' : 'Try Pro (Demo)'}
+          </Btn>
         </div>
+        <p className="text-[10px] text-ink-faint mt-3">
+          {lang === 'ar' ? 'زر "تجربة Pro" للعرض فقط — لا يتطلب بطاقة ائتمان' : '"Try Pro (Demo)" simulates paid plans for preview purposes'}
+        </p>
       </div>
     )
   }

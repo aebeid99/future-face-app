@@ -35,6 +35,7 @@ export const CHAT_CLEAR        = 'CHAT_CLEAR'
 // ─── Robox / Workforce ────────────────────────────────────────
 export const MEMBER_ADD    = 'MEMBER_ADD'
 export const MEMBER_UPDATE = 'MEMBER_UPDATE'
+export const MEMBER_DELETE = 'MEMBER_DELETE'
 export const CHECKIN_LOG   = 'CHECKIN_LOG'
 
 // ─── Settings ─────────────────────────────────────────────────

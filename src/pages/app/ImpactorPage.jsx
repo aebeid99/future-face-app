@@ -3,7 +3,7 @@ import {
   Plus, Target, ChevronDown, ChevronRight, Trash2, Sparkles,
   Send, Bot, X, Check, TrendingUp, CheckSquare, MessageSquare,
   Archive, RotateCcw, Flag, Calendar, Circle, CheckCircle2,
-  AlertCircle, MinusCircle, Clock,
+  AlertCircle, MinusCircle, Clock, Pencil,
 } from 'lucide-react'
 import Card from '../../components/ui/Card.jsx'
 import Btn from '../../components/ui/Btn.jsx'
@@ -97,64 +97,93 @@ function KrAddRow({ okrId, onDone }) {
 // ══════════════════════════════════════════════════════════════════════════════
 function KrRow({ kr, okrId }) {
   const { dispatch } = useApp()
-  const [editingVal,   setEditingVal]   = useState(false)
-  const [val,          setVal]          = useState(String(kr.current))
-  const [editingTitle, setEditingTitle] = useState(false)
-  const [titleVal,     setTitleVal]     = useState(kr.title)
-  const titleRef = useRef(null)
+  const [editing,   setEditing]   = useState(false)
+  const [editForm,  setEditForm]  = useState({ title: kr.title, current: String(kr.current), target: String(kr.target), unit: kr.unit })
+  const editTitleRef = useRef(null)
 
-  useEffect(() => { setVal(String(kr.current)) },   [kr.current])
-  useEffect(() => { setTitleVal(kr.title) },         [kr.title])
-  useEffect(() => { if (editingTitle) titleRef.current?.focus() }, [editingTitle])
+  // Keep edit form in sync when kr changes externally
+  useEffect(() => {
+    if (!editing) setEditForm({ title: kr.title, current: String(kr.current), target: String(kr.target), unit: kr.unit })
+  }, [kr.title, kr.current, kr.target, kr.unit, editing])
+
+  useEffect(() => { if (editing) editTitleRef.current?.focus() }, [editing])
 
   const pct = Math.min(Math.round((kr.current / kr.target) * 100), 100)
+  const setF = (k, v) => setEditForm(f => ({ ...f, [k]: v }))
 
-  const commitVal = () => {
-    const n = parseFloat(val)
-    if (!isNaN(n) && n !== kr.current) dispatch({ type: KR_UPDATE, okrId, krId: kr.id, updates: { current: n } })
-    setEditingVal(false)
-  }
-  const commitTitle = () => {
-    const t = titleVal.trim()
-    if (t && t !== kr.title) dispatch({ type: KR_UPDATE, okrId, krId: kr.id, updates: { title: t } })
-    else setTitleVal(kr.title)
-    setEditingTitle(false)
+  const commitEdit = () => {
+    const updates = {}
+    const title = editForm.title.trim()
+    const current = parseFloat(editForm.current)
+    const target  = parseFloat(editForm.target)
+    if (title && title !== kr.title) updates.title = title
+    if (!isNaN(current) && current !== kr.current) updates.current = current
+    if (!isNaN(target) && target > 0 && target !== kr.target) updates.target = target
+    if (editForm.unit !== kr.unit) updates.unit = editForm.unit
+    if (Object.keys(updates).length > 0) dispatch({ type: KR_UPDATE, okrId, krId: kr.id, updates })
+    setEditing(false)
   }
 
+  const cancelEdit = () => {
+    setEditForm({ title: kr.title, current: String(kr.current), target: String(kr.target), unit: kr.unit })
+    setEditing(false)
+  }
+
+  // ── Edit mode ─────────────────────────────────────────────────────────────
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2 p-2.5 rounded-lg bg-gold/5 border border-gold/30 animate-fade-in">
+        <ProgressRing value={pct} size={28} stroke={3} className="shrink-0" />
+        <input ref={editTitleRef} value={editForm.title} onChange={e => setF('title', e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') cancelEdit() }}
+          placeholder="Key result title"
+          className="flex-1 bg-dark border border-border rounded px-2 py-1 text-xs text-ink outline-none focus:border-gold/60 min-w-0" />
+        <input type="number" value={editForm.current} onChange={e => setF('current', e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && commitEdit()}
+          placeholder="0"
+          className="w-14 bg-dark border border-border rounded px-1.5 py-1 text-xs text-ink text-center outline-none focus:border-gold/60" />
+        <span className="text-ink-muted text-xs shrink-0">/</span>
+        <input type="number" value={editForm.target} onChange={e => setF('target', e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && commitEdit()}
+          placeholder="100"
+          className="w-14 bg-dark border border-border rounded px-1.5 py-1 text-xs text-ink text-center outline-none focus:border-gold/60" />
+        <select value={editForm.unit} onChange={e => setF('unit', e.target.value)}
+          className="bg-dark border border-border rounded px-1 py-1 text-xs text-ink-muted outline-none focus:border-gold/60 w-16 shrink-0">
+          {KR_UNITS.map(u => <option key={u}>{u}</option>)}
+        </select>
+        <button onClick={commitEdit}
+          className="w-6 h-6 rounded bg-gold/20 hover:bg-gold/30 text-gold flex items-center justify-center transition-colors shrink-0" title="Save">
+          <Check size={11} />
+        </button>
+        <button onClick={cancelEdit}
+          className="w-6 h-6 rounded hover:bg-border text-ink-muted flex items-center justify-center transition-colors shrink-0" title="Cancel">
+          <X size={11} />
+        </button>
+      </div>
+    )
+  }
+
+  // ── Display mode ──────────────────────────────────────────────────────────
   return (
     <div className="flex items-center gap-3 p-2.5 rounded-lg bg-dark hover:bg-dark/60 group transition-colors">
       <ProgressRing value={pct} size={32} stroke={3} className="shrink-0" />
       <div className="flex-1 min-w-0">
-        {editingTitle ? (
-          <input ref={titleRef} value={titleVal} onChange={e => setTitleVal(e.target.value)}
-            onBlur={commitTitle}
-            onKeyDown={e => { if (e.key === 'Enter') commitTitle(); if (e.key === 'Escape') { setTitleVal(kr.title); setEditingTitle(false) } }}
-            className="w-full bg-surface border border-gold/60 rounded px-2 py-0.5 text-xs text-ink outline-none" />
-        ) : (
-          <p className="text-xs font-medium text-ink leading-tight truncate cursor-text hover:text-gold/90 transition-colors"
-            onDoubleClick={() => setEditingTitle(true)} title="Double-click to edit title">
-            {kr.title}
-          </p>
-        )}
-        <div className="flex items-center gap-1 mt-1">
-          {editingVal ? (
-            <input autoFocus type="number" value={val} onChange={e => setVal(e.target.value)}
-              onBlur={commitVal}
-              onKeyDown={e => { if (e.key === 'Enter') commitVal(); if (e.key === 'Escape') { setVal(String(kr.current)); setEditingVal(false) } }}
-              className="w-16 bg-surface border border-gold/60 rounded px-1.5 py-0.5 text-xs text-ink outline-none" />
-          ) : (
-            <button onClick={() => setEditingVal(true)}
-              className="text-[10px] text-ink-muted hover:text-gold transition-colors" title="Click to update">
-              {kr.current.toLocaleString()} / {kr.target.toLocaleString()} {kr.unit}
-            </button>
-          )}
-          <span className="text-[10px] text-ink-faint ml-1">({pct}%)</span>
-        </div>
+        <p className="text-xs font-medium text-ink leading-tight truncate">{kr.title}</p>
+        <p className="text-[10px] text-ink-muted mt-0.5">
+          {kr.current.toLocaleString()} / {kr.target.toLocaleString()} {kr.unit}
+          <span className="text-ink-faint ml-1">({pct}%)</span>
+        </p>
       </div>
-      <select value={kr.status || 'on_track'} onChange={e => dispatch({ type: KR_UPDATE, okrId, krId: kr.id, updates: { status: e.target.value } })}
+      <select value={kr.status || 'on_track'}
+        onChange={e => dispatch({ type: KR_UPDATE, okrId, krId: kr.id, updates: { status: e.target.value } })}
         className="bg-dark border border-border rounded text-[10px] text-ink-muted px-1.5 py-1 outline-none focus:border-gold/40 cursor-pointer shrink-0" style={{ maxWidth: 80 }}>
         {KR_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
       </select>
+      {/* Edit + Delete — visible on hover */}
+      <button onClick={() => setEditing(true)}
+        className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded hover:bg-gold/10 text-ink-muted hover:text-gold flex items-center justify-center transition-all shrink-0" title="Edit KR">
+        <Pencil size={11} />
+      </button>
       <button onClick={() => dispatch({ type: KR_DELETE, okrId, krId: kr.id })}
         className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded hover:bg-red-500/10 text-ink-muted hover:text-red-400 flex items-center justify-center transition-all shrink-0" title="Delete KR">
         <Trash2 size={11} />
@@ -480,14 +509,16 @@ export default function ImpactorPage() {
   const { lang, okrs, org, user, chatHistory, members } = state
   const tr = (k) => t(k, lang)
 
-  const [filterQ,      setFilterQ]      = useState(currentQuarter())
-  const [showArchived, setShowArchived] = useState(false)
-  const [expanded,     setExpanded]     = useState({})
-  const [newOkrOpen,   setNewOkrOpen]   = useState(false)
-  const [aiOpen,       setAiOpen]       = useState(false)
-  const [aiMsg,        setAiMsg]        = useState('')
-  const [aiLoading,    setAiLoading]    = useState(false)
-  const [newOkr,       setNewOkr]       = useState({ title: '', quarter: currentQuarter(), owner: user?.name || '' })
+  const [filterQ,       setFilterQ]       = useState(currentQuarter())
+  const [showArchived,  setShowArchived]  = useState(false)
+  const [expanded,      setExpanded]      = useState({})
+  const [newOkrOpen,    setNewOkrOpen]    = useState(false)
+  const [editOkrTarget, setEditOkrTarget] = useState(null)  // OKR being edited
+  const [editOkrForm,   setEditOkrForm]   = useState({ title: '', quarter: currentQuarter(), owner: '' })
+  const [aiOpen,        setAiOpen]        = useState(false)
+  const [aiMsg,         setAiMsg]         = useState('')
+  const [aiLoading,     setAiLoading]     = useState(false)
+  const [newOkr,        setNewOkr]        = useState({ title: '', quarter: currentQuarter(), owner: user?.name || '' })
 
   const toggle = (id) => setExpanded(e => ({ ...e, [id]: !e[id] }))
 
@@ -502,6 +533,21 @@ export default function ImpactorPage() {
     dispatch({ type: OKR_CREATE, ...newOkr })
     setNewOkr({ title: '', quarter: currentQuarter(), owner: user?.name || '' })
     setNewOkrOpen(false)
+  }
+
+  const openEditOkr = (okr) => {
+    setEditOkrTarget(okr)
+    setEditOkrForm({ title: okr.title, quarter: okr.quarter, owner: okr.owner || '' })
+  }
+
+  const saveEditOkr = () => {
+    if (!editOkrForm.title.trim() || !editOkrTarget) return
+    dispatch({ type: OKR_UPDATE, id: editOkrTarget.id, updates: {
+      title:   editOkrForm.title.trim(),
+      quarter: editOkrForm.quarter,
+      owner:   editOkrForm.owner,
+    }})
+    setEditOkrTarget(null)
   }
 
   const archiveOkr = (id) => dispatch({ type: OKR_UPDATE, id, updates: { archived: true  } })
@@ -594,6 +640,9 @@ export default function ImpactorPage() {
                 <Badge variant={okr.status} dot size="sm">{statusLabel(okr.status)}</Badge>
                 {/* Card actions — stop propagation so click doesn't toggle expand */}
                 <div className="flex items-center gap-1 ml-1 opacity-0 group-hover/card:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                  <Btn variant="ghost" size="icon" className="w-7 h-7 text-ink-muted hover:text-gold" onClick={() => openEditOkr(okr)} title="Edit OKR">
+                    <Pencil size={13} />
+                  </Btn>
                   {okr.archived ? (
                     <Btn variant="ghost" size="icon" className="w-7 h-7 text-ink-muted hover:text-success" onClick={() => restoreOkr(okr.id)} title="Restore">
                       <RotateCcw size={13} />
@@ -651,6 +700,39 @@ export default function ImpactorPage() {
           ) : (
             <Input label={lang === 'ar' ? 'المسؤول' : 'Owner'}
               value={newOkr.owner} onChange={e => setNewOkr(o => ({ ...o, owner: e.target.value }))}
+              placeholder={user?.name || 'Your name'} />
+          )}
+        </div>
+      </Modal>
+
+      {/* Edit OKR modal */}
+      <Modal open={!!editOkrTarget} onClose={() => setEditOkrTarget(null)} title={lang === 'ar' ? 'تعديل الهدف' : 'Edit Objective'}
+        footer={
+          <>
+            <Btn variant="secondary" size="sm" onClick={() => setEditOkrTarget(null)}>{tr('btn_cancel')}</Btn>
+            <Btn size="sm" onClick={saveEditOkr} disabled={!editOkrForm.title.trim()}>{tr('btn_save')}</Btn>
+          </>
+        }>
+        <div className="space-y-4">
+          <Input label={lang === 'ar' ? 'عنوان الهدف' : 'Objective Title'}
+            value={editOkrForm.title} onChange={e => setEditOkrForm(f => ({ ...f, title: e.target.value }))}
+            autoFocus onKeyDown={e => e.key === 'Enter' && saveEditOkr()} />
+          <Select label={lang === 'ar' ? 'الربع المالي' : 'Quarter'}
+            value={editOkrForm.quarter} onChange={e => setEditOkrForm(f => ({ ...f, quarter: e.target.value }))}
+            options={QUARTERS.map(q => ({ value: q, label: q }))} />
+          {members.length > 0 ? (
+            <div>
+              <label className="text-xs font-medium text-ink-muted mb-1.5 block">{lang === 'ar' ? 'المسؤول' : 'Owner'}</label>
+              <select value={editOkrForm.owner} onChange={e => setEditOkrForm(f => ({ ...f, owner: e.target.value }))}
+                className="ff-input w-full text-sm">
+                <option value="">Select owner…</option>
+                {members.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                <option value={user?.name || 'Me'}>{user?.name || 'Me'} (you)</option>
+              </select>
+            </div>
+          ) : (
+            <Input label={lang === 'ar' ? 'المسؤول' : 'Owner'}
+              value={editOkrForm.owner} onChange={e => setEditOkrForm(f => ({ ...f, owner: e.target.value }))}
               placeholder={user?.name || 'Your name'} />
           )}
         </div>

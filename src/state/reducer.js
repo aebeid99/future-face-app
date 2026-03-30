@@ -251,14 +251,19 @@ export function reducer(state, action) {
     // ─── Robox ────────────────────────────────────────────────
     case A.MEMBER_ADD: {
       const member = {
-        id: `m_${Date.now()}`,
-        ...action.member,
-        joinedAt: new Date().toISOString(),
+        id: `m_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        name:       action.member.name       || '',
+        role:       action.member.role       || '',
+        dept:       action.member.dept       || '',
+        email:      action.member.email      || '',
+        phone:      action.member.phone      || '',
+        managerId:  action.member.managerId  || null,
+        startDate:  action.member.startDate  || new Date().toISOString().split('T')[0],
+        status:     'checked_in',
+        attendance: 100,
+        checkins:   [],
       }
-      return {
-        ...state,
-        members: [...state.members, member],
-      }
+      return { ...state, members: [...state.members, member] }
     }
 
     case A.MEMBER_UPDATE:
@@ -268,6 +273,34 @@ export function reducer(state, action) {
           m.id === action.id ? { ...m, ...action.updates } : m
         ),
       }
+
+    case A.MEMBER_DELETE:
+      return {
+        ...state,
+        members: state.members.filter(m => m.id !== action.id),
+      }
+
+    case A.CHECKIN_LOG: {
+      // Log a daily attendance check-in for a member
+      return {
+        ...state,
+        members: state.members.map(m => {
+          if (m.id !== action.memberId) return m
+          const entry = {
+            id:     `cl_${Date.now()}`,
+            date:   new Date().toISOString(),
+            status: action.status || 'checked_in',
+            note:   action.note   || '',
+          }
+          const checkins = [entry, ...(m.checkins || [])].slice(0, 90) // keep 90 days
+          // Recalc attendance rate from last 30 entries
+          const recent = checkins.slice(0, 30)
+          const present = recent.filter(c => c.status === 'checked_in' || c.status === 'late').length
+          const attendance = recent.length ? Math.round((present / recent.length) * 100) : m.attendance
+          return { ...m, checkins, attendance, status: action.status || m.status }
+        }),
+      }
+    }
 
     // ─── Demo ─────────────────────────────────────────────────
     case A.DEMO_PLAN:
@@ -407,6 +440,12 @@ export const INIT_STATE = {
       checkins: [],
     },
   ],
-  members: [],
+  members: [
+    { id: 'm_seed_1', name: 'Ahmed Al-Rashidi', role: 'Chief Executive Officer', dept: 'Executive', email: 'ahmed@futureface.io',  phone: '+966 50 123 4567', managerId: null,       startDate: '2023-01-10', status: 'checked_in', attendance: 96, checkins: [] },
+    { id: 'm_seed_2', name: 'Sara Mahmoud',     role: 'Strategy Lead',           dept: 'Strategy',  email: 'sara@futureface.io',   phone: '+966 50 234 5678', managerId: 'm_seed_1', startDate: '2023-03-01', status: 'checked_in', attendance: 91, checkins: [] },
+    { id: 'm_seed_3', name: 'Ali Hassan',       role: 'Engineering Lead',        dept: 'Tech',      email: 'ali@futureface.io',    phone: '+966 50 345 6789', managerId: 'm_seed_1', startDate: '2023-02-15', status: 'absent',     attendance: 88, checkins: [] },
+    { id: 'm_seed_4', name: 'Nora Al-Ghamdi',   role: 'Data Analyst',            dept: 'Analytics', email: 'nora@futureface.io',   phone: '+966 50 456 7890', managerId: 'm_seed_2', startDate: '2024-01-20', status: 'checked_in', attendance: 94, checkins: [] },
+    { id: 'm_seed_5', name: 'Khalid Al-Harbi',  role: 'Sales Lead',              dept: 'Sales',     email: 'khalid@futureface.io', phone: '+966 50 567 8901', managerId: 'm_seed_1', startDate: '2023-08-01', status: 'late',       attendance: 79, checkins: [] },
+  ],
   chatHistory: [],
 }

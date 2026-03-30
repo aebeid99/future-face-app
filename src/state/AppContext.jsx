@@ -12,11 +12,16 @@ export function AppProvider({ children }) {
       if (saved) {
         const parsed = JSON.parse(saved)
         // Only restore certain parts (not UI state like page/step)
+        // Deep-merge org.subs to prevent nested object reset bugs
+        const restoredOrg = { ...init.org, ...parsed.org }
+        if (parsed.org?.subs) {
+          restoredOrg.subs = { ...init.org.subs, ...parsed.org.subs }
+        }
         return {
           ...init,
           lang: parsed.lang || init.lang,
           user: parsed.user || init.user,
-          org: { ...init.org, ...parsed.org },
+          org: restoredOrg,
           okrs: parsed.okrs || init.okrs,
           members: parsed.members || init.members,
           // Restore page only if user is logged in
