@@ -1,17 +1,36 @@
 import { useState } from 'react'
-import { Sparkles, Shield, Calendar, Bot, AlertTriangle, TrendingDown, Send, RefreshCw, Zap } from 'lucide-react'
+import { Sparkles, Shield, Calendar, Bot, AlertTriangle, TrendingDown, Send, RefreshCw, Zap, ArrowRight, X as XIcon } from 'lucide-react'
 import Card, { CardHeader } from '../../components/ui/Card.jsx'
 import Btn from '../../components/ui/Btn.jsx'
 import Badge from '../../components/ui/Badge.jsx'
 import { useApp } from '../../state/AppContext.jsx'
-import { NAV, SUB_UPDATE } from '../../state/actions.js'
+import { NAV, SUB_UPDATE, HIGHLIGHT } from '../../state/actions.js'
 import { t } from '../../utils/i18n.js'
 import { chat, SYSTEM_PROMPTS } from '../../api/anthropic.js'
 
+// Alerts wired to seed OKR / KR IDs so navigation + highlight works
 const ALERTS = [
-  { id: 1, type: 'risk',   title: 'KR2 falling behind',        detail: 'Market share KR2 hasn\'t been updated in 18 days', okr: 'Market Share Growth',  severity: 'high' },
-  { id: 2, type: 'trend',  title: 'WERC declining trend',      detail: 'Weekly review completion dropped from 92% to 78% over 3 weeks', severity: 'medium' },
-  { id: 3, type: 'miss',   title: 'Initiative owner missing',  detail: 'Customer Experience Initiative has no assigned owner', okr: 'Customer Satisfaction', severity: 'low' },
+  {
+    id: 1, type: 'risk', severity: 'high',
+    title: 'ARR target KR at risk',
+    detail: 'KR "Achieve SAR 2.4M in new ARR" is at 35% with only 6 weeks remaining. Velocity is insufficient to close the gap.',
+    okr: 'Grow enterprise customer base in KSA',
+    okrId: 'okr_demo_1', krId: 'kr_demo_1b',
+  },
+  {
+    id: 2, type: 'trend', severity: 'medium',
+    title: 'NPS survey initiative blocked',
+    detail: '"Run quarterly NPS survey" has been blocked for 7 days. This is blocking progress on KR: Reach NPS score of 65+.',
+    okr: 'Deliver world-class product experience',
+    okrId: 'okr_demo_2', krId: 'kr_demo_2a',
+  },
+  {
+    id: 3, type: 'miss', severity: 'low',
+    title: 'Empty KR on new objective',
+    detail: '"Build a high-performance sales team" has no Key Results defined. Add KRs to start tracking progress.',
+    okr: 'Build a high-performance sales team',
+    okrId: 'okr_demo_3', krId: null,
+  },
 ]
 
 export default function AIPilotPage() {
@@ -28,6 +47,20 @@ export default function AIPilotPage() {
   const [briefing,   setBriefing]   = useState(null)
   const [loading,    setLoading]    = useState(false)
   const [tab,        setTab]        = useState('shield')
+  const [dismissed,  setDismissed]  = useState(new Set())
+
+  const navigateToAlert = (alert) => {
+    // Navigate to Impactor page
+    dispatch({ type: NAV, page: 'impactor' })
+    // Highlight the target KR or OKR
+    if (alert.okrId || alert.krId) {
+      setTimeout(() => {
+        dispatch({ type: HIGHLIGHT, id: alert.krId || alert.okrId, okrId: alert.okrId })
+      }, 150)
+    }
+  }
+
+  const activeAlerts = ALERTS.filter(a => !dismissed.has(a.id))
 
   const generateBriefing = async () => {
     setLoading(true)
@@ -127,35 +160,76 @@ export default function AIPilotPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-ink-muted">
-              {lang === 'ar' ? `${ALERTS.length} تنبيهات نشطة` : `${ALERTS.length} active alerts`}
+              {lang === 'ar' ? `${activeAlerts.length} تنبيهات نشطة` : `${activeAlerts.length} active alert${activeAlerts.length !== 1 ? 's' : ''}`}
             </p>
-            <Badge variant="warning" dot>{lang === 'ar' ? 'يحتاج انتباهاً' : 'Needs attention'}</Badge>
+            {activeAlerts.length > 0
+              ? <Badge variant="warning" dot>{lang === 'ar' ? 'يحتاج انتباهاً' : 'Needs attention'}</Badge>
+              : <Badge variant="success" dot>{lang === 'ar' ? 'كل شيء على ما يرام' : 'All clear'}</Badge>
+            }
           </div>
-          {ALERTS.map(alert => (
-            <Card key={alert.id}>
+
+          {activeAlerts.length === 0 && (
+            <Card>
+              <div className="py-8 text-center">
+                <div className="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-3">
+                  <Shield size={22} className="text-success" />
+                </div>
+                <p className="text-sm font-medium text-ink mb-1">Intelligence Shield is clear</p>
+                <p className="text-xs text-ink-muted">All alerts have been dismissed. Keep executing!</p>
+              </div>
+            </Card>
+          )}
+
+          {activeAlerts.map(alert => (
+            <Card key={alert.id}
+              className={`border transition-all hover:border-gold/30 ${
+                alert.severity === 'high'   ? 'border-red-500/20'    :
+                alert.severity === 'medium' ? 'border-yellow-500/20' : 'border-border'
+              }`}>
               <div className="flex items-start gap-3">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                {/* Severity icon */}
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
                   alert.severity === 'high'   ? 'bg-error/10'   :
-                  alert.severity === 'medium' ? 'bg-warning/10' : 'bg-info/10'
+                  alert.severity === 'medium' ? 'bg-warning/10' : 'bg-blue-500/10'
                 }`}>
-                  <AlertTriangle size={14} className={
+                  <AlertTriangle size={15} className={
                     alert.severity === 'high'   ? 'text-error'   :
-                    alert.severity === 'medium' ? 'text-warning' : 'text-info'
+                    alert.severity === 'medium' ? 'text-warning' : 'text-blue-400'
                   } />
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <p className="text-sm font-semibold">{alert.title}</p>
-                    <Badge variant={alert.severity === 'high' ? 'error' : alert.severity === 'medium' ? 'warning' : 'info'} size="xs">
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="text-sm font-semibold text-ink">{alert.title}</p>
+                    <Badge
+                      variant={alert.severity === 'high' ? 'error' : alert.severity === 'medium' ? 'warning' : 'default'}
+                      size="xs">
                       {alert.severity}
                     </Badge>
                   </div>
-                  <p className="text-xs text-ink-muted">{alert.detail}</p>
+                  <p className="text-xs text-ink-muted leading-relaxed">{alert.detail}</p>
                   {alert.okr && (
-                    <p className="text-xs text-gold mt-1">⊕ {alert.okr}</p>
+                    <p className="text-[11px] text-gold mt-1.5 flex items-center gap-1">
+                      <TrendingDown size={9} /> {alert.okr}
+                    </p>
                   )}
+                  {/* Action row */}
+                  <div className="flex items-center gap-2 mt-2.5">
+                    <button
+                      onClick={() => navigateToAlert(alert)}
+                      className="flex items-center gap-1.5 text-xs font-medium text-gold hover:text-gold/80 transition-colors group">
+                      View in Impactor
+                      <ArrowRight size={11} className="group-hover:translate-x-0.5 transition-transform" />
+                    </button>
+                    <span className="text-border">·</span>
+                    <button
+                      onClick={() => setDismissed(d => new Set([...d, alert.id]))}
+                      className="text-xs text-ink-faint hover:text-ink-muted transition-colors">
+                      Dismiss
+                    </button>
+                  </div>
                 </div>
-                <Btn variant="ghost" size="sm" className="text-ink-faint">Dismiss</Btn>
               </div>
             </Card>
           ))}

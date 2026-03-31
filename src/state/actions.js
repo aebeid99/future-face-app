@@ -42,5 +42,8 @@ export const CHECKIN_LOG   = 'CHECKIN_LOG'
 export const ORG_UPDATE    = 'ORG_UPDATE'
 export const STATUS_CONFIG = 'STATUS_CONFIG'
 
+// ─── UI / Navigation helpers ──────────────────────────────────
+export const HIGHLIGHT     = 'HIGHLIGHT'   // pulse-highlight an OKR/KR row
+
 // ─── Demo ─────────────────────────────────────────────────────
 export const DEMO_PLAN     = 'DEMO_PLAN'

@@ -1,10 +1,12 @@
 import * as A from './actions.js'
 import { progressStatus } from '../utils/formatting.js'
+import { calcKrProgress } from '../utils/krMetrics.js'
 
 // ── Derive OKR progress + status from its key results ──────────
+// Uses calcKrProgress() which handles Boolean / Numeric / Milestone types
 function recalcOkr(okr, krs) {
   const progress = krs.length
-    ? Math.round(krs.reduce((s, kr) => s + Math.min((kr.current / kr.target) * 100, 100), 0) / krs.length)
+    ? Math.round(krs.reduce((s, kr) => s + calcKrProgress(kr), 0) / krs.length)
     : okr.progress   // preserve original progress when no KRs yet
   const allDone = krs.length > 0 && krs.every(kr => kr.status === 'completed')
   const status  = allDone ? 'completed' : progressStatus(progress)
@@ -108,10 +110,21 @@ export function reducer(state, action) {
           if (o.id !== action.okrId) return o
           const newKr = {
             id: `kr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-            title: action.title,
-            current: Number(action.current) || 0,
-            target: Number(action.target) || 100,
-            unit: action.unit || '%',
+            title:    action.title,
+            type:     action.krType   || action.type || 'numeric',
+            // Numeric
+            baseline: action.baseline ?? 0,
+            current:  Number(action.current) || 0,
+            target:   Number(action.target)  || 100,
+            unit:     action.unit     || '%',
+            // Boolean
+            done:     action.done     ?? false,
+            // Milestone
+            startDate:        action.startDate        || '',
+            dueDate:          action.dueDate          || '',
+            progressOverride: action.progressOverride ?? undefined,
+            // Meta
+            tags:   action.tags   || [],
             status: 'on_track',
           }
           return recalcOkr(o, [...(o.keyResults || []), newKr])
@@ -150,11 +163,16 @@ export function reducer(state, action) {
           if (o.id !== action.okrId) return o
           const item = {
             id: `ini_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-            title:  action.title,
-            owner:  action.owner  || '',
-            dueDate: action.dueDate || '',
-            status: 'not_started',
-            krId:   action.krId   || null,
+            title:     action.title,
+            owner:     action.owner     || '',
+            startDate: action.startDate || '',
+            dueDate:   action.dueDate   || '',
+            budget:    action.budget    || 0,
+            status:    'not_started',
+            krId:      action.krId      || null,
+            priority:  action.priority  || 'p2',
+            comments:  [],
+            auditLog:  [],
           }
           return { ...o, initiatives: [...(o.initiatives || []), item] }
         }),
@@ -302,6 +320,12 @@ export function reducer(state, action) {
       }
     }
 
+    // ─── UI helpers ───────────────────────────────────────────
+    // HIGHLIGHT: pulse-highlight an OKR, KR, or initiative row
+    // { id, okrId? } — cleared after 3 s by the component
+    case A.HIGHLIGHT:
+      return { ...state, highlight: { id: action.id, okrId: action.okrId || null, ts: Date.now() } }
+
     // ─── Demo ─────────────────────────────────────────────────
     case A.DEMO_PLAN:
       return { ...state, demoVariant: action.variant }
@@ -317,6 +341,7 @@ export const INIT_STATE = {
   step: 0,
   lang: 'en',
   demoVariant: 'A',
+  highlight: null,   // { id, okrId, ts } — set by HIGHLIGHT action, cleared by component
 
   user: null,
   org: {
@@ -380,9 +405,9 @@ export const INIT_STATE = {
         },
       ],
       initiatives: [
-        { id: 'ini_d1a', title: 'Launch Q2 enterprise outbound campaign', owner: 'Ahmed', dueDate: '2026-05-15', status: 'in_progress', krId: 'kr_demo_1a' },
-        { id: 'ini_d1b', title: 'Define ICP and account scoring model',   owner: 'Ahmed', dueDate: '2026-04-30', status: 'done',        krId: null },
-        { id: 'ini_d1c', title: 'Build ROI calculator for prospects',     owner: 'Ahmed', dueDate: '2026-06-01', status: 'not_started', krId: 'kr_demo_1b' },
+        { id: 'ini_d1a', title: 'Launch Q2 enterprise outbound campaign', owner: 'Ahmed', startDate: '2026-04-01', dueDate: '2026-05-15', status: 'in_progress', krId: 'kr_demo_1a', priority: 'p1', budget: 45000, comments: [], auditLog: [] },
+        { id: 'ini_d1b', title: 'Define ICP and account scoring model',   owner: 'Sara',  startDate: '2026-04-01', dueDate: '2026-04-30', status: 'done',        krId: 'kr_demo_1a', priority: 'p2', budget: 8000,  comments: [], auditLog: [] },
+        { id: 'ini_d1c', title: 'Build ROI calculator for prospects',     owner: 'Ahmed', startDate: '2026-05-01', dueDate: '2026-06-01', status: 'not_started', krId: 'kr_demo_1b', priority: 'p2', budget: 12000, comments: [], auditLog: [] },
       ],
       checkins: [
         { id: 'ci_d1a', date: '2026-04-14T09:00:00.000Z', author: 'Ahmed', note: 'Closed 2 new accounts this week. Pipeline looks strong heading into month-end.', progressSnapshot: 42, status: 'on_track' },
@@ -418,8 +443,8 @@ export const INIT_STATE = {
         },
       ],
       initiatives: [
-        { id: 'ini_d2a', title: 'Redesign onboarding flow',       owner: 'Ahmed', dueDate: '2026-05-01', status: 'in_progress', krId: 'kr_demo_2b' },
-        { id: 'ini_d2b', title: 'Run quarterly NPS survey',       owner: 'Ahmed', dueDate: '2026-04-20', status: 'blocked',     krId: 'kr_demo_2a' },
+        { id: 'ini_d2a', title: 'Redesign onboarding flow',       owner: 'Ali',   startDate: '2026-04-05', dueDate: '2026-05-01', status: 'in_progress', krId: 'kr_demo_2b', priority: 'p1', budget: 18000, comments: [], auditLog: [] },
+        { id: 'ini_d2b', title: 'Run quarterly NPS survey',       owner: 'Nora',  startDate: '2026-04-01', dueDate: '2026-04-20', status: 'blocked',     krId: 'kr_demo_2a', priority: 'p1', budget: 5000,  comments: [], auditLog: [] },
       ],
       checkins: [
         { id: 'ci_d2a', date: '2026-04-14T09:00:00.000Z', author: 'Ahmed', note: 'NPS survey delayed — engineering bandwidth constrained. Escalating.', progressSnapshot: 28, status: 'at_risk' },

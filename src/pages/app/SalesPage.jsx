@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useApp } from '@/state/AppContext'
-import AppShell from '@/components/layout/AppShell'
 import Btn from '@/components/ui/Btn'
 import Badge from '@/components/ui/Badge'
 import Avatar from '@/components/ui/Avatar'
@@ -341,7 +340,7 @@ function AddEmployeeModal({ open, onClose, onSave, editing }) {
         </div>
         <div>
           <label className="ff-label flex items-center gap-1.5">
-            <Video size={12} className="text-blue-400" /> Teams / M365 User Principal Name
+            <Video size={12} className="text-blue-400" />{' '}Teams {'/'} M365 User Principal Name
           </label>
           <Input value={form.teams_user_id} onChange={e => set('teams_user_id', e.target.value)} placeholder="khalid@company.onmicrosoft.com" />
           <p className="text-[11px] text-ink-muted mt-1">Used to sync calendar events from Microsoft Teams</p>
@@ -492,8 +491,7 @@ export default function SalesPage() {
   const territories = ['all', ...new Set(employees.map(e => e.territory))]
 
   return (
-    <AppShell>
-      <div className="p-6 max-w-screen-2xl mx-auto">
+    <div className="p-0 max-w-screen-2xl mx-auto">
 
         {/* Page header */}
         <div className="flex items-center justify-between mb-6">
@@ -686,6 +684,5 @@ export default function SalesPage() {
           employees={employees}
         />
       </div>
-    </AppShell>
   )
 }
