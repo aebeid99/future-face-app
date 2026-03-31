@@ -3,7 +3,7 @@ import {
   Plus, Flag, ChevronDown, ChevronRight, Target,
   Pencil, Trash2, CheckSquare, Calendar, Circle,
   CheckCircle2, Clock, MinusCircle, Layers, BarChart2,
-  AlignLeft, ZoomIn, ZoomOut,
+  AlignLeft, ZoomIn, ZoomOut, GripVertical,
 } from 'lucide-react'
 import Card, { CardHeader } from '../../components/ui/Card.jsx'
 import Btn from '../../components/ui/Btn.jsx'
@@ -18,6 +18,7 @@ import { useApp } from '../../state/AppContext.jsx'
 import {
   OKR_CREATE, OKR_UPDATE, OKR_DELETE,
   INITIATIVE_UPDATE, INITIATIVE_DELETE,
+  OKR_REORDER, INITIATIVE_MOVE,
 } from '../../state/actions.js'
 import { t } from '../../utils/i18n.js'
 import { quarterList, currentQuarter } from '../../utils/formatting.js'
@@ -115,7 +116,8 @@ function GanttPanel({ rows, columns, rowHeight = 36, dispatch }) {
 
   // dragState: null | { type:'resize'|'move', id, okrId, origStart, origEnd, grabFrac }
   const dragState = useRef(null)
-  const [tooltip, setTooltip] = useState(null) // { x, y, text }
+  const [tooltip,  setTooltip]  = useState(null)  // { x, y, text }
+  const [preview,  setPreview]  = useState(null)  // { rowKey, left, width } ghost bar position
 
   const fracToDate = useCallback((frac) => {
     if (!columns.length) return null
@@ -134,22 +136,29 @@ function GanttPanel({ rows, columns, rowHeight = 36, dispatch }) {
   const handlePointerMove = useCallback((e) => {
     const ds = dragState.current
     if (!ds) return
-    const frac = clientXToFrac(e.clientX)
+    const frac  = clientXToFrac(e.clientX)
     const delta = frac - ds.grabFrac
 
-    let text
+    let text, previewLeft, previewWidth
     if (ds.type === 'resize') {
-      const newEnd = fracToDate(Math.max(frac, ds.startFrac + 0.005))
-      text = `End: ${FMT_DATE(newEnd)}`
+      const newEndFrac  = Math.max(frac, ds.startFrac + 0.005)
+      const newEnd      = fracToDate(newEndFrac)
+      text              = `End: ${FMT_DATE(newEnd)}`
+      previewLeft       = `${ds.startFrac * 100}%`
+      previewWidth      = `${Math.max(0.5, (newEndFrac - ds.startFrac)) * 100}%`
     } else {
-      const durFrac = ds.endFrac - ds.startFrac
-      const newStart = fracToDate(Math.max(0, ds.startFrac + delta))
-      const newEnd   = fracToDate(Math.min(1, ds.endFrac   + delta))
-      text = `${FMT_DATE(newStart)} → ${FMT_DATE(newEnd)}`
+      const newStartFrac = Math.max(0, ds.startFrac + delta)
+      const newEndFrac   = Math.min(1, ds.endFrac   + delta)
+      const newStart     = fracToDate(newStartFrac)
+      const newEnd       = fracToDate(newEndFrac)
+      text               = `${FMT_DATE(newStart)} → ${FMT_DATE(newEnd)}`
+      previewLeft        = `${newStartFrac * 100}%`
+      previewWidth       = `${Math.max(0.5, (newEndFrac - newStartFrac)) * 100}%`
     }
-    const el = containerRef.current
+    const el   = containerRef.current
     const rect = el?.getBoundingClientRect() || { left: 0, top: 0 }
     setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top - 32, text })
+    setPreview({ rowKey: `ini_${ds.id}`, left: previewLeft, width: previewWidth })
   }, [clientXToFrac, fracToDate])
 
   const handlePointerUp = useCallback((e) => {
@@ -171,6 +180,7 @@ function GanttPanel({ rows, columns, rowHeight = 36, dispatch }) {
     }
     dragState.current = null
     setTooltip(null)
+    setPreview(null)
     containerRef.current?.releasePointerCapture?.(e.pointerId)
   }, [clientXToFrac, fracToDate, dispatch])
 
@@ -180,7 +190,7 @@ function GanttPanel({ rows, columns, rowHeight = 36, dispatch }) {
       className="relative overflow-x-auto overflow-y-hidden flex-1 min-w-0 select-none"
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onPointerLeave={() => { if (!dragState.current) setTooltip(null) }}
+      onPointerLeave={() => { if (!dragState.current) { setTooltip(null); setPreview(null) } }}
     >
       {/* Column headers */}
       <div className="flex border-b border-border sticky top-0 bg-surface z-10">
@@ -267,32 +277,51 @@ function GanttPanel({ rows, columns, rowHeight = 36, dispatch }) {
             setTooltip({ x: 0, y: 0, text: '…' })
           }
 
+          const isDragging  = dragState.current?.id === row.id
+          const ghostActive = preview?.rowKey === row.key
+
           return (
             <div key={row.key} style={{ height: h }} className={`relative flex items-center ${rowBg}`}>
               {pos ? (
-                <div
-                  className={`absolute rounded-full flex items-center text-[10px] font-medium text-white/90 overflow-hidden group/bar
-                    ${cfg.bar} ${isDone ? 'opacity-70' : 'opacity-90'} hover:opacity-100 transition-opacity`}
-                  style={{ top: 8, bottom: 8, left: pos.left, width: pos.width, minWidth: 16 }}
-                  title={`${row.label} · ${cfg.label}`}
-                >
-                  {/* Move handle (bar body) */}
+                <>
+                  {/* Ghost bar — shown while dragging */}
+                  {ghostActive && (
+                    <div
+                      className={`absolute rounded-full border-2 border-white/30 pointer-events-none z-10`}
+                      style={{
+                        top: 8, bottom: 8,
+                        left: preview.left, width: preview.width, minWidth: 16,
+                        background: 'rgba(255,255,255,0.15)',
+                        boxShadow: '0 0 0 2px rgba(212,146,14,0.6)',
+                      }}
+                    />
+                  )}
+                  {/* Actual bar */}
                   <div
-                    className="flex-1 h-full flex items-center px-2 cursor-grab active:cursor-grabbing"
-                    onPointerDown={e => startDrag(e, 'move')}
+                    className={`absolute rounded-full flex items-center text-[10px] font-medium text-white/90 overflow-hidden group/bar
+                      ${cfg.bar} ${isDone ? 'opacity-70' : 'opacity-90'} hover:opacity-100 transition-opacity
+                      ${isDragging ? 'opacity-25' : ''}`}
+                    style={{ top: 8, bottom: 8, left: pos.left, width: pos.width, minWidth: 16 }}
+                    title={`${row.label} · ${cfg.label}`}
                   >
-                    <span className="truncate hidden sm:block leading-none">
-                      {parseFloat(pos.width) > 8 ? row.label : ''}
-                    </span>
+                    {/* Move handle (bar body) */}
+                    <div
+                      className="flex-1 h-full flex items-center px-2 cursor-grab active:cursor-grabbing"
+                      onPointerDown={e => startDrag(e, 'move')}
+                    >
+                      <span className="truncate hidden sm:block leading-none">
+                        {parseFloat(pos.width) > 8 ? row.label : ''}
+                      </span>
+                    </div>
+                    {/* Resize handle (right edge) */}
+                    <div
+                      className="w-2.5 h-full cursor-col-resize shrink-0 flex items-center justify-center hover:bg-white/20 transition-colors"
+                      onPointerDown={e => startDrag(e, 'resize')}
+                    >
+                      <div className="w-0.5 h-3/5 bg-white/50 rounded-full" />
+                    </div>
                   </div>
-                  {/* Resize handle (right edge) */}
-                  <div
-                    className="w-2.5 h-full cursor-col-resize shrink-0 flex items-center justify-center hover:bg-white/20 transition-colors"
-                    onPointerDown={e => startDrag(e, 'resize')}
-                  >
-                    <div className="w-0.5 h-3/5 bg-white/50 rounded-full" />
-                  </div>
-                </div>
+                </>
               ) : (
                 <div className="absolute left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 bg-gold/60 border border-gold"
                   title={row.label} style={{ top: '50%', marginTop: -6 }} />
@@ -311,10 +340,57 @@ function GanttPanel({ rows, columns, rowHeight = 36, dispatch }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// LEFT PANE — OKR + Initiative tree
+// LEFT PANE — OKR + Initiative tree with drag-to-reorder
 // ══════════════════════════════════════════════════════════════════════════════
-function LeftTree({ rows, expanded, toggleOkr, onEdit, dispatch, lang, statusLabel }) {
+function LeftTree({ rows, expanded, toggleOkr, onEdit, dispatch, lang, statusLabel, allOkrs }) {
   const INI_ORDER = ['not_started', 'in_progress', 'done', 'blocked']
+
+  // ── Drag state ────────────────────────────────────────────────────────────
+  const [dragKey, setDragKey] = useState(null)   // row.key being dragged
+  const [overKey, setOverKey] = useState(null)   // row.key drop target
+  const [overPos, setOverPos] = useState('after') // 'before' | 'after' (which side of target)
+
+  const dragRow = dragKey ? rows.find(r => r.key === dragKey) : null
+
+  const canDrop = (target) => {
+    if (!dragRow || !target || dragRow.key === target.key) return false
+    if (dragRow.type === 'okr')  return target.type === 'okr'
+    if (dragRow.type === 'ini')  return target.type === 'ini' || target.type === 'okr'
+    return false
+  }
+
+  const handleDragOver = (e, row) => {
+    if (!canDrop(row)) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    // Determine if mouse is in top or bottom half of the row
+    const rect = e.currentTarget.getBoundingClientRect()
+    setOverKey(row.key)
+    setOverPos(e.clientY < rect.top + rect.height / 2 ? 'before' : 'after')
+  }
+
+  const handleDrop = (e, targetRow) => {
+    e.preventDefault()
+    if (!canDrop(targetRow)) { setDragKey(null); setOverKey(null); return }
+
+    if (dragRow.type === 'okr' && targetRow.type === 'okr') {
+      const fromIdx = allOkrs.findIndex(o => o.id === dragRow.okrId)
+      const toIdx   = allOkrs.findIndex(o => o.id === targetRow.okrId)
+      if (fromIdx !== -1 && toIdx !== -1 && fromIdx !== toIdx)
+        dispatch({ type: OKR_REORDER, fromIndex: fromIdx, toIndex: toIdx })
+    } else if (dragRow.type === 'ini') {
+      const toOkrId = targetRow.type === 'okr' ? targetRow.okrId : targetRow.okrId
+      if (dragRow.okrId !== toOkrId || dragRow.id !== targetRow.id)
+        dispatch({ type: INITIATIVE_MOVE, iniId: dragRow.id, fromOkrId: dragRow.okrId, toOkrId, toKrId: null })
+    }
+
+    setDragKey(null); setOverKey(null)
+  }
+
+  // Indicator: thin coloured line before/after target row
+  const DropLine = () => (
+    <div className="h-0.5 bg-gold/70 rounded-full mx-2 transition-none pointer-events-none" />
+  )
 
   return (
     <div className="w-80 shrink-0 border-r border-border overflow-y-auto">
@@ -324,6 +400,8 @@ function LeftTree({ rows, expanded, toggleOkr, onEdit, dispatch, lang, statusLab
       </div>
 
       {rows.map((row) => {
+        const isDropTarget = overKey === row.key && canDrop(row)
+
         if (row.type === 'quarter') {
           return (
             <div key={row.key}
@@ -336,32 +414,54 @@ function LeftTree({ rows, expanded, toggleOkr, onEdit, dispatch, lang, statusLab
 
         if (row.type === 'okr') {
           return (
-            <div key={row.key}
-              className="flex items-center gap-2 px-3 py-2.5 border-b border-border/50 hover:bg-dark/20 cursor-pointer group transition-colors select-none"
-              onClick={() => toggleOkr(row.okrId)}>
-              <button className="text-ink-faint shrink-0">
-                {expanded[row.okrId] ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-              </button>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-ink truncate">{row.label}</p>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  {row.owner && <Avatar name={row.owner} size="xs" />}
-                  <span className="text-[10px] text-ink-faint">{row.krsCount} KRs · {row.inisCount} ini</span>
+            <div key={row.key}>
+              {/* Drop indicator BEFORE */}
+              {isDropTarget && overPos === 'before' && <DropLine />}
+              <div
+                draggable
+                onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; setDragKey(row.key) }}
+                onDragOver={e => handleDragOver(e, row)}
+                onDragLeave={() => setOverKey(null)}
+                onDrop={e => handleDrop(e, row)}
+                onDragEnd={() => { setDragKey(null); setOverKey(null) }}
+                className={[
+                  'flex items-center gap-2 px-3 py-2.5 border-b border-border/50 hover:bg-dark/20 cursor-pointer group transition-colors select-none',
+                  dragKey === row.key ? 'opacity-40' : '',
+                  isDropTarget ? 'bg-gold/5' : '',
+                ].join(' ')}
+                onClick={() => toggleOkr(row.okrId)}>
+                {/* Drag grip */}
+                <span
+                  className="text-ink-faint opacity-0 group-hover:opacity-60 cursor-grab active:cursor-grabbing shrink-0 transition-opacity"
+                  onClick={e => e.stopPropagation()}>
+                  <GripVertical size={12} />
+                </span>
+                <button className="text-ink-faint shrink-0">
+                  {expanded[row.okrId] ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-ink truncate">{row.label}</p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    {row.owner && <Avatar name={row.owner} size="xs" />}
+                    <span className="text-[10px] text-ink-faint">{row.krsCount} KRs · {row.inisCount} ini</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="text-[10px] font-semibold text-gold">{row.progress}%</span>
+                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                    <button onClick={() => onEdit(row.okr)}
+                      className="w-5 h-5 rounded hover:bg-gold/10 text-ink-faint hover:text-gold flex items-center justify-center">
+                      <Pencil size={9} />
+                    </button>
+                    <button onClick={() => dispatch({ type: OKR_DELETE, id: row.okrId })}
+                      className="w-5 h-5 rounded hover:bg-red-500/10 text-ink-faint hover:text-red-400 flex items-center justify-center">
+                      <Trash2 size={9} />
+                    </button>
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <span className="text-[10px] font-semibold text-gold">{row.progress}%</span>
-                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
-                  <button onClick={() => onEdit(row.okr)}
-                    className="w-5 h-5 rounded hover:bg-gold/10 text-ink-faint hover:text-gold flex items-center justify-center">
-                    <Pencil size={9} />
-                  </button>
-                  <button onClick={() => dispatch({ type: OKR_DELETE, id: row.okrId })}
-                    className="w-5 h-5 rounded hover:bg-red-500/10 text-ink-faint hover:text-red-400 flex items-center justify-center">
-                    <Trash2 size={9} />
-                  </button>
-                </div>
-              </div>
+              {/* Drop indicator AFTER */}
+              {isDropTarget && overPos === 'after' && <DropLine />}
             </div>
           )
         }
@@ -371,28 +471,52 @@ function LeftTree({ rows, expanded, toggleOkr, onEdit, dispatch, lang, statusLab
           const Icon = cfg.icon
           const pri  = PRIORITY_COLORS[row.priority] || 'text-ink-faint'
 
-          const cycleStatus = () => {
+          const cycleStatus = (e) => {
+            e.stopPropagation()
             const next = INI_ORDER[(INI_ORDER.indexOf(row.status) + 1) % INI_ORDER.length]
             dispatch({ type: INITIATIVE_UPDATE, okrId: row.okrId, initiativeId: row.id, updates: { status: next } })
           }
 
           return (
-            <div key={row.key}
-              className="flex items-center gap-2 pl-8 pr-3 py-2 border-b border-border/30 hover:bg-dark/10 group transition-colors">
-              <button onClick={cycleStatus} className="shrink-0">
-                <Icon size={11} className={`${cfg.color} transition-colors`} />
-              </button>
-              <div className="flex-1 min-w-0">
-                <p className={`text-[11px] truncate ${row.status === 'done' ? 'line-through text-ink-faint' : 'text-ink'}`}>
-                  {row.label}
-                </p>
+            <div key={row.key}>
+              {/* Drop indicator BEFORE */}
+              {isDropTarget && overPos === 'before' && <DropLine />}
+              <div
+                draggable
+                onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.stopPropagation(); setDragKey(row.key) }}
+                onDragOver={e => handleDragOver(e, row)}
+                onDragLeave={() => setOverKey(null)}
+                onDrop={e => handleDrop(e, row)}
+                onDragEnd={() => { setDragKey(null); setOverKey(null) }}
+                className={[
+                  'flex items-center gap-2 pl-6 pr-3 py-2 border-b border-border/30 hover:bg-dark/10 group transition-colors',
+                  dragKey === row.key ? 'opacity-40' : '',
+                  isDropTarget ? 'bg-blue-500/5' : '',
+                ].join(' ')}
+              >
+                {/* Drag grip */}
+                <span
+                  className="text-ink-faint opacity-0 group-hover:opacity-60 cursor-grab active:cursor-grabbing shrink-0 transition-opacity"
+                  onMouseDown={e => e.stopPropagation()}>
+                  <GripVertical size={10} />
+                </span>
+                <button onClick={cycleStatus} className="shrink-0">
+                  <Icon size={11} className={`${cfg.color} transition-colors`} />
+                </button>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-[11px] truncate ${row.status === 'done' ? 'line-through text-ink-faint' : 'text-ink'}`}>
+                    {row.label}
+                  </p>
+                </div>
+                {row.priority && <span className={`text-[9px] font-bold ${pri} shrink-0`}>{row.priority?.toUpperCase()}</span>}
+                {row.owner && <Avatar name={row.owner} size="xs" className="shrink-0" />}
+                <button onClick={e => { e.stopPropagation(); dispatch({ type: INITIATIVE_DELETE, okrId: row.okrId, initiativeId: row.id }) }}
+                  className="opacity-0 group-hover:opacity-100 w-4 h-4 rounded hover:bg-red-500/10 text-ink-faint hover:text-red-400 flex items-center justify-center shrink-0">
+                  <Trash2 size={8} />
+                </button>
               </div>
-              {row.priority && <span className={`text-[9px] font-bold ${pri} shrink-0`}>{row.priority?.toUpperCase()}</span>}
-              {row.owner && <Avatar name={row.owner} size="xs" className="shrink-0" />}
-              <button onClick={() => dispatch({ type: INITIATIVE_DELETE, okrId: row.okrId, initiativeId: row.id })}
-                className="opacity-0 group-hover:opacity-100 w-4 h-4 rounded hover:bg-red-500/10 text-ink-faint hover:text-red-400 flex items-center justify-center shrink-0">
-                <Trash2 size={8} />
-              </button>
+              {/* Drop indicator AFTER */}
+              {isDropTarget && overPos === 'after' && <DropLine />}
             </div>
           )
         }
@@ -738,6 +862,7 @@ export default function RoadmapPage() {
             dispatch={dispatch}
             lang={lang}
             statusLabel={statusLabel}
+            allOkrs={okrs}
           />
           <GanttPanel rows={rows} columns={columns} rowHeight={36} dispatch={dispatch} />
         </div>
