@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Target, Users2, Sparkles, Map,
   CreditCard, Settings, ScrollText, HelpCircle,
   ChevronLeft, ChevronRight, LogOut, TrendingUp,
-  Compass, Layers, BarChart2,
+  Compass, Layers, BarChart2, Shield,
 } from 'lucide-react'
 import Logo from '../ui/Logo.jsx'
 import Avatar from '../ui/Avatar.jsx'
@@ -21,7 +21,7 @@ const NAV_ITEMS = [
   { id: 'all_issues', icon: Layers,          label: 'All Issues',        group: 'main' },
   { id: 'robox',      icon: Users2,          key: 'sidebar_robox',       group: 'main', product: 'robox'    },
   { id: 'ai_pilot',   icon: Sparkles,        key: 'sidebar_ai_pilot',    group: 'main', product: 'aiPilot'  },
-  { id: 'crm',        icon: BarChart2,       label: 'CRM',               group: 'main' },
+  { id: 'admin',      icon: Shield,          label: 'Admin',             group: 'main' },
   { id: 'billing',    icon: CreditCard,      key: 'sidebar_billing',     group: 'bottom' },
   { id: 'settings',   icon: Settings,        key: 'sidebar_settings',    group: 'bottom' },
   { id: 'audit',      icon: ScrollText,      key: 'sidebar_audit',       group: 'bottom' },

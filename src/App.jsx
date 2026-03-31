@@ -23,6 +23,7 @@ import SalesPage        from './pages/app/SalesPage.jsx'
 import StrategyPage     from './pages/app/StrategyPage.jsx'
 import AllIssuesPage    from './pages/app/AllIssuesPage.jsx'
 import CRMPage          from './pages/app/CRMPage.jsx'
+import AdminPage        from './pages/app/AdminPage.jsx'
 
 // ─── Router ───────────────────────────────────────────────────
 function Router() {
@@ -52,8 +53,9 @@ function Router() {
     ai_pilot:   <AIPilotPage />,
     roadmap:    <RoadmapPage />,
     all_issues: <AllIssuesPage />,
-    crm:        <CRMPage />,
-    sales:      <SalesPage />,
+    admin:      <AdminPage />,
+    crm:        <AdminPage />,
+    sales:      <AdminPage />,
     billing:    <BillingPage />,
     settings:   <SettingsPage />,
     audit:      <AuditPage />,
