@@ -4,14 +4,17 @@ import { useApp } from '../../state/AppContext.jsx'
 
 // Page → title/subtitle mapping
 const PAGE_META = {
-  dashboard: { title: 'Executive Dashboard',  subtitle: 'Your strategy at a glance' },
-  impactor:  { title: 'Impactor',             subtitle: 'OKR & Strategy Execution' },
-  robox:     { title: 'Robox',                subtitle: 'Workforce & Attendance' },
-  ai_pilot:  { title: 'AI Pilot',             subtitle: 'Intelligence & Automation' },
-  roadmap:   { title: 'Roadmap',              subtitle: 'Initiatives & Milestones' },
-  billing:   { title: 'Billing & Plans',      subtitle: 'Manage your subscription' },
-  settings:  { title: 'Settings',             subtitle: 'Organisation & Preferences' },
-  audit:     { title: 'Audit Log',            subtitle: 'Activity history' },
+  dashboard:  { title: 'Executive Dashboard',      subtitle: 'Your strategy at a glance' },
+  strategy:   { title: 'Strategy',                 subtitle: 'North Star · Objectives · Key Results' },
+  impactor:   { title: 'Impactor',                 subtitle: 'OKR & Strategy Execution' },
+  robox:      { title: 'Robox',                    subtitle: 'Workforce & Attendance' },
+  ai_pilot:   { title: 'AI Pilot',                 subtitle: 'Intelligence & Automation' },
+  roadmap:    { title: 'Roadmap',                  subtitle: 'Initiatives & Milestones' },
+  all_issues: { title: 'All Issues',               subtitle: 'Jira-like work management' },
+  crm:        { title: 'CRM — Customer Pipeline',  subtitle: 'Demo bookings · Conversion · ARR' },
+  billing:    { title: 'Billing & Plans',          subtitle: 'Manage your subscription' },
+  settings:   { title: 'Settings',                 subtitle: 'Organisation & Preferences' },
+  audit:      { title: 'Audit Log',                subtitle: 'Activity history' },
 }
 
 export default function AppShell({ children }) {

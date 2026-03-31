@@ -3,6 +3,7 @@ import {
   LayoutDashboard, Target, Users2, Sparkles, Map,
   CreditCard, Settings, ScrollText, HelpCircle,
   ChevronLeft, ChevronRight, LogOut, TrendingUp,
+  Compass, Layers, BarChart2,
 } from 'lucide-react'
 import Logo from '../ui/Logo.jsx'
 import Avatar from '../ui/Avatar.jsx'
@@ -13,15 +14,17 @@ import { NAV, LOGOUT } from '../../state/actions.js'
 import { t } from '../../utils/i18n.js'
 
 const NAV_ITEMS = [
-  { id: 'dashboard', icon: LayoutDashboard, key: 'sidebar_dashboard',    group: 'main' },
-  { id: 'impactor',  icon: Target,          key: 'sidebar_impactor',     group: 'main', product: 'impactor' },
-  { id: 'robox',     icon: Users2,          key: 'sidebar_robox',        group: 'main', product: 'robox'    },
-  { id: 'ai_pilot',  icon: Sparkles,        key: 'sidebar_ai_pilot',     group: 'main', product: 'aiPilot'  },
-  { id: 'roadmap',   icon: Map,             key: 'sidebar_roadmap',      group: 'main' },
-  { id: 'sales',     icon: TrendingUp,      key: 'sidebar_sales',        group: 'main' },
-  { id: 'billing',   icon: CreditCard,      key: 'sidebar_billing',      group: 'bottom' },
-  { id: 'settings',  icon: Settings,        key: 'sidebar_settings',     group: 'bottom' },
-  { id: 'audit',     icon: ScrollText,      key: 'sidebar_audit',        group: 'bottom' },
+  { id: 'dashboard',  icon: LayoutDashboard, key: 'sidebar_dashboard',   group: 'main' },
+  { id: 'strategy',   icon: Compass,         label: 'Strategy',          group: 'main' },
+  { id: 'impactor',   icon: Target,          key: 'sidebar_impactor',    group: 'main', product: 'impactor' },
+  { id: 'roadmap',    icon: Map,             key: 'sidebar_roadmap',     group: 'main' },
+  { id: 'all_issues', icon: Layers,          label: 'All Issues',        group: 'main' },
+  { id: 'robox',      icon: Users2,          key: 'sidebar_robox',       group: 'main', product: 'robox'    },
+  { id: 'ai_pilot',   icon: Sparkles,        key: 'sidebar_ai_pilot',    group: 'main', product: 'aiPilot'  },
+  { id: 'crm',        icon: BarChart2,       label: 'CRM',               group: 'main' },
+  { id: 'billing',    icon: CreditCard,      key: 'sidebar_billing',     group: 'bottom' },
+  { id: 'settings',   icon: Settings,        key: 'sidebar_settings',    group: 'bottom' },
+  { id: 'audit',      icon: ScrollText,      key: 'sidebar_audit',       group: 'bottom' },
 ]
 
 export default function Sidebar() {
@@ -54,6 +57,7 @@ export default function Sidebar() {
     const Icon    = item.icon
     const active  = page === item.id
     const locked  = isLocked(item.product)
+    const label   = item.label || (item.key ? tr(item.key) : item.id)
 
     const content = (
       <button
@@ -64,12 +68,12 @@ export default function Sidebar() {
           locked ? 'opacity-40 cursor-not-allowed' : '',
           collapsed ? 'justify-center px-0' : '',
         ].join(' ')}
-        title={collapsed ? tr(item.key) : undefined}
+        title={collapsed ? label : undefined}
       >
         <Icon size={16} className="flex-shrink-0" />
         {!collapsed && (
           <>
-            <span className="flex-1 text-left">{tr(item.key)}</span>
+            <span className="flex-1 text-left">{label}</span>
             {item.product && !collapsed && planBadge(item.product)}
           </>
         )}
@@ -77,7 +81,7 @@ export default function Sidebar() {
     )
 
     return collapsed ? (
-      <Tooltip content={tr(item.key)} placement="right">
+      <Tooltip content={label} placement="right">
         {content}
       </Tooltip>
     ) : content

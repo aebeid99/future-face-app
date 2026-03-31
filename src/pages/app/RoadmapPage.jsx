@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useCallback } from 'react'
 import {
   Plus, Flag, ChevronDown, ChevronRight, Target,
   Pencil, Trash2, CheckSquare, Calendar, Circle,
@@ -105,13 +105,83 @@ function todayPosition(columns) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// GANTT TIMELINE PANEL
+// GANTT TIMELINE PANEL  (supports drag-to-resize and drag-to-move)
 // ══════════════════════════════════════════════════════════════════════════════
-function GanttPanel({ rows, columns, rowHeight = 36 }) {
-  const todayX = todayPosition(columns)
+const FMT_DATE = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
+
+function GanttPanel({ rows, columns, rowHeight = 36, dispatch }) {
+  const todayX     = todayPosition(columns)
+  const containerRef = useRef(null)
+
+  // dragState: null | { type:'resize'|'move', id, okrId, origStart, origEnd, grabFrac }
+  const dragState = useRef(null)
+  const [tooltip, setTooltip] = useState(null) // { x, y, text }
+
+  const fracToDate = useCallback((frac) => {
+    if (!columns.length) return null
+    const rangeStart = columns[0].start.getTime()
+    const rangeEnd   = columns[columns.length - 1].end.getTime()
+    return new Date(rangeStart + frac * (rangeEnd - rangeStart))
+  }, [columns])
+
+  const clientXToFrac = useCallback((clientX) => {
+    const el = containerRef.current
+    if (!el) return 0
+    const rect = el.getBoundingClientRect()
+    return Math.max(0, Math.min(1, (clientX - rect.left + el.scrollLeft) / el.scrollWidth))
+  }, [])
+
+  const handlePointerMove = useCallback((e) => {
+    const ds = dragState.current
+    if (!ds) return
+    const frac = clientXToFrac(e.clientX)
+    const delta = frac - ds.grabFrac
+
+    let text
+    if (ds.type === 'resize') {
+      const newEnd = fracToDate(Math.max(frac, ds.startFrac + 0.005))
+      text = `End: ${FMT_DATE(newEnd)}`
+    } else {
+      const durFrac = ds.endFrac - ds.startFrac
+      const newStart = fracToDate(Math.max(0, ds.startFrac + delta))
+      const newEnd   = fracToDate(Math.min(1, ds.endFrac   + delta))
+      text = `${FMT_DATE(newStart)} → ${FMT_DATE(newEnd)}`
+    }
+    const el = containerRef.current
+    const rect = el?.getBoundingClientRect() || { left: 0, top: 0 }
+    setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top - 32, text })
+  }, [clientXToFrac, fracToDate])
+
+  const handlePointerUp = useCallback((e) => {
+    const ds = dragState.current
+    if (!ds) return
+    const frac  = clientXToFrac(e.clientX)
+    const delta = frac - ds.grabFrac
+
+    if (ds.type === 'resize') {
+      const newEnd = fracToDate(Math.max(frac, ds.startFrac + 0.005))
+      dispatch({ type: INITIATIVE_UPDATE, okrId: ds.okrId, initiativeId: ds.id, updates: { dueDate: newEnd.toISOString().split('T')[0] } })
+    } else {
+      const newStart = fracToDate(Math.max(0, ds.startFrac + delta))
+      const newEnd   = fracToDate(Math.min(1, ds.endFrac   + delta))
+      dispatch({ type: INITIATIVE_UPDATE, okrId: ds.okrId, initiativeId: ds.id, updates: {
+        startDate: newStart.toISOString().split('T')[0],
+        dueDate:   newEnd.toISOString().split('T')[0],
+      }})
+    }
+    dragState.current = null
+    setTooltip(null)
+    containerRef.current?.releasePointerCapture?.(e.pointerId)
+  }, [clientXToFrac, fracToDate, dispatch])
 
   return (
-    <div className="relative overflow-x-auto overflow-y-hidden flex-1 min-w-0 select-none">
+    <div
+      ref={containerRef}
+      className="relative overflow-x-auto overflow-y-hidden flex-1 min-w-0 select-none"
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={() => { if (!dragState.current) setTooltip(null) }}
+    >
       {/* Column headers */}
       <div className="flex border-b border-border sticky top-0 bg-surface z-10">
         {columns.map(col => (
@@ -121,11 +191,19 @@ function GanttPanel({ rows, columns, rowHeight = 36 }) {
         ))}
       </div>
 
+      {/* Tooltip */}
+      {tooltip && (
+        <div className="absolute z-50 pointer-events-none bg-dark border border-gold/40 text-gold text-[10px] font-medium px-2 py-1 rounded shadow-lg whitespace-nowrap"
+          style={{ left: tooltip.x, top: tooltip.y, transform: 'translateX(-50%)' }}>
+          {tooltip.text}
+        </div>
+      )}
+
       {/* Rows area */}
       <div className="relative">
         {/* Column grid lines */}
         <div className="absolute inset-0 flex pointer-events-none">
-          {columns.map((col, i) => (
+          {columns.map((col) => (
             <div key={col.key} className="flex-1 min-w-[52px] border-r border-border/20 last:border-r-0 h-full" />
           ))}
         </div>
@@ -166,21 +244,54 @@ function GanttPanel({ rows, columns, rowHeight = 36 }) {
             )
           }
 
-          // Initiative bar
+          // Initiative bar — draggable
           const pos    = barPosition(row.startDate, row.endDate, columns)
           const cfg    = INI_STATUS[row.status] || INI_STATUS.not_started
           const isDone = row.status === 'done'
+
+          // Compute start/end fractions for drag math
+          const rangeStart = columns.length ? columns[0].start.getTime() : 0
+          const rangeEnd   = columns.length ? columns[columns.length - 1].end.getTime() : 1
+          const total      = rangeEnd - rangeStart || 1
+          const startFrac  = row.startDate ? clamp01((row.startDate.getTime() - rangeStart) / total) : 0
+          const endFrac    = row.endDate   ? clamp01((row.endDate.getTime()   - rangeStart) / total) : startFrac + 0.05
+
+          const startDrag = (e, type) => {
+            e.stopPropagation()
+            containerRef.current?.setPointerCapture?.(e.pointerId)
+            dragState.current = {
+              type, id: row.id, okrId: row.okrId,
+              startFrac, endFrac,
+              grabFrac: clientXToFrac(e.clientX),
+            }
+            setTooltip({ x: 0, y: 0, text: '…' })
+          }
 
           return (
             <div key={row.key} style={{ height: h }} className={`relative flex items-center ${rowBg}`}>
               {pos ? (
                 <div
-                  className={`absolute rounded-full flex items-center px-2 text-[10px] font-medium text-white/90 truncate
-                    ${cfg.bar} ${isDone ? 'opacity-70' : 'opacity-90'} hover:opacity-100 transition-opacity cursor-default`}
-                  style={{ top: 8, bottom: 8, left: pos.left, width: pos.width, minWidth: 12 }}
+                  className={`absolute rounded-full flex items-center text-[10px] font-medium text-white/90 overflow-hidden group/bar
+                    ${cfg.bar} ${isDone ? 'opacity-70' : 'opacity-90'} hover:opacity-100 transition-opacity`}
+                  style={{ top: 8, bottom: 8, left: pos.left, width: pos.width, minWidth: 16 }}
                   title={`${row.label} · ${cfg.label}`}
                 >
-                  <span className="truncate hidden sm:block">{pos.width.replace('%', '') > 8 ? row.label : ''}</span>
+                  {/* Move handle (bar body) */}
+                  <div
+                    className="flex-1 h-full flex items-center px-2 cursor-grab active:cursor-grabbing"
+                    onPointerDown={e => startDrag(e, 'move')}
+                  >
+                    <span className="truncate hidden sm:block leading-none">
+                      {parseFloat(pos.width) > 8 ? row.label : ''}
+                    </span>
+                  </div>
+                  {/* Resize handle (right edge) */}
+                  <div
+                    className="w-2.5 h-full cursor-col-resize shrink-0 flex items-center justify-center hover:bg-white/20 transition-colors"
+                    onPointerDown={e => startDrag(e, 'resize')}
+                  >
+                    <div className="w-0.5 h-3/5 bg-white/50 rounded-full" />
+                  </div>
                 </div>
               ) : (
                 <div className="absolute left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 bg-gold/60 border border-gold"
@@ -628,7 +739,7 @@ export default function RoadmapPage() {
             lang={lang}
             statusLabel={statusLabel}
           />
-          <GanttPanel rows={rows} columns={columns} rowHeight={36} />
+          <GanttPanel rows={rows} columns={columns} rowHeight={36} dispatch={dispatch} />
         </div>
       )}
 

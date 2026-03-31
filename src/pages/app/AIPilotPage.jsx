@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Sparkles, Shield, Calendar, Bot, AlertTriangle, TrendingDown, Send, RefreshCw, Zap, ArrowRight, X as XIcon } from 'lucide-react'
+import { Sparkles, Shield, Calendar, Bot, AlertTriangle, TrendingDown, Send, RefreshCw, Zap, ArrowRight, X as XIcon, Target, Wand2 } from 'lucide-react'
 import Card, { CardHeader } from '../../components/ui/Card.jsx'
 import Btn from '../../components/ui/Btn.jsx'
 import Badge from '../../components/ui/Badge.jsx'
@@ -7,6 +7,9 @@ import { useApp } from '../../state/AppContext.jsx'
 import { NAV, SUB_UPDATE, HIGHLIGHT } from '../../state/actions.js'
 import { t } from '../../utils/i18n.js'
 import { chat, SYSTEM_PROMPTS } from '../../api/anthropic.js'
+import { streamGPT, OKR_ARCHITECT_PROMPT } from '../../api/openai.js'
+import { OKR_CREATE } from '../../state/actions.js'
+import { currentQuarter } from '../../utils/formatting.js'
 
 // Alerts wired to seed OKR / KR IDs so navigation + highlight works
 const ALERTS = [
@@ -44,10 +47,15 @@ export default function AIPilotPage() {
   const roboxPaid    = PAID.includes(org.subs?.robox)
   const isLocked = !impactorPaid || !roboxPaid
 
-  const [briefing,   setBriefing]   = useState(null)
-  const [loading,    setLoading]    = useState(false)
-  const [tab,        setTab]        = useState('shield')
-  const [dismissed,  setDismissed]  = useState(new Set())
+  const [briefing,    setBriefing]    = useState(null)
+  const [loading,     setLoading]     = useState(false)
+  const [tab,         setTab]         = useState('shield')
+  const [dismissed,   setDismissed]   = useState(new Set())
+  // AI OKR Architect (ChatGPT)
+  const [archMsg,     setArchMsg]     = useState('')
+  const [archHistory, setArchHistory] = useState([])
+  const [archLoading, setArchLoading] = useState(false)
+  const [archStream,  setArchStream]  = useState('')
 
   const navigateToAlert = (alert) => {
     // Navigate to Impactor page
@@ -132,9 +140,58 @@ export default function AIPilotPage() {
     )
   }
 
+  const sendArchMsg = async () => {
+    if (!archMsg.trim() || archLoading) return
+    const userMsg  = { role: 'user', content: archMsg }
+    const newHist  = [...archHistory, userMsg]
+    setArchHistory(newHist)
+    setArchMsg('')
+    setArchLoading(true)
+    setArchStream('')
+    try {
+      let full = ''
+      await streamGPT({
+        messages: newHist,
+        systemPrompt: OKR_ARCHITECT_PROMPT,
+        onChunk: (_, f) => { full = f; setArchStream(f) },
+        onDone: (f) => {
+          full = f
+          setArchHistory(h => [...h, { role: 'assistant', content: f }])
+          setArchStream('')
+          // Auto-create OKR if JSON found
+          const m = f.match(/```json\n([\s\S]*?)\n```/)
+          if (m) {
+            try {
+              const p = JSON.parse(m[1])
+              if (p.objective) {
+                dispatch({ type: OKR_CREATE,
+                  title: p.objective,
+                  quarter: p.quarter || currentQuarter(),
+                  owner: state.user?.name || '',
+                })
+              }
+            } catch {}
+          }
+        },
+        onError: (err) => {
+          setArchHistory(h => [...h, { role: 'assistant', content: `⚠️ Error: ${err}` }])
+          setArchStream('')
+        },
+      })
+    } finally { setArchLoading(false) }
+  }
+
+  const QUICK_PROMPTS = [
+    'Draft an OKR for growing our enterprise customer base in Saudi Arabia',
+    'Create an OKR for improving customer retention and reducing churn',
+    'Write an OKR for launching a new product feature this quarter',
+    'Generate an OKR aligned to Vision 2030 for our HR transformation',
+  ]
+
   const TABS = [
-    { id: 'shield',   icon: Shield,   label: lang === 'ar' ? 'درع الذكاء' : 'Intelligence Shield' },
-    { id: 'briefing', icon: Calendar, label: lang === 'ar' ? 'إحاطة الأحد' : 'Sunday Briefing'    },
+    { id: 'shield',    icon: Shield,   label: lang === 'ar' ? 'درع الذكاء' : 'Intelligence Shield' },
+    { id: 'briefing',  icon: Calendar, label: lang === 'ar' ? 'إحاطة الأحد' : 'Sunday Briefing'    },
+    { id: 'architect', icon: Wand2,    label: lang === 'ar' ? 'مهندس الأهداف' : 'OKR Architect'    },
   ]
 
   return (
@@ -278,6 +335,111 @@ export default function AIPilotPage() {
               </div>
             )}
           </Card>
+        </div>
+      )}
+
+      {/* ── OKR ARCHITECT TAB (ChatGPT) ─────────────────────────────────── */}
+      {tab === 'architect' && (
+        <div className="flex flex-col gap-4" style={{ height: 'calc(100vh - 260px)', minHeight: 480 }}>
+          {/* Header */}
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center shrink-0">
+              <Wand2 size={18} className="text-gold" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-ink">AI OKR Architect</h3>
+              <p className="text-xs text-ink-muted">Powered by ChatGPT · Marty Cagan · SMART Goals</p>
+            </div>
+            {archHistory.length > 0 && (
+              <button onClick={() => { setArchHistory([]); setArchStream('') }}
+                className="ml-auto text-xs text-ink-faint hover:text-ink-muted transition-colors flex items-center gap-1">
+                <RefreshCw size={11} /> New session
+              </button>
+            )}
+          </div>
+
+          {/* Chat messages */}
+          <div className="flex-1 overflow-y-auto rounded-xl bg-dark border border-border p-4 space-y-4">
+            {archHistory.length === 0 && !archLoading && (
+              <div className="py-6 text-center">
+                <div className="w-14 h-14 rounded-2xl bg-gold/10 flex items-center justify-center mx-auto mb-4">
+                  <Target size={24} className="text-gold" />
+                </div>
+                <p className="text-sm font-medium text-ink mb-1">Describe your goal</p>
+                <p className="text-xs text-ink-muted mb-5">I'll draft a complete OKR with Key Results and auto-populate the form</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-lg mx-auto">
+                  {QUICK_PROMPTS.map(p => (
+                    <button key={p} onClick={() => setArchMsg(p)}
+                      className="text-left text-xs px-3 py-2.5 rounded-lg border border-border bg-surface hover:border-gold/40 hover:bg-gold/5 text-ink-muted hover:text-ink transition-all">
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {archHistory.map((msg, i) => (
+              <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
+                {msg.role === 'assistant' && (
+                  <div className="w-7 h-7 rounded-lg bg-gold/20 flex items-center justify-center shrink-0 mt-0.5">
+                    <Wand2 size={13} className="text-gold" />
+                  </div>
+                )}
+                <div className={`max-w-[85%] rounded-xl px-3.5 py-2.5 text-xs leading-relaxed whitespace-pre-wrap ${
+                  msg.role === 'user'
+                    ? 'bg-gold/15 text-gold border border-gold/20'
+                    : 'bg-surface text-ink border border-border'
+                }`}>
+                  {msg.content}
+                </div>
+                {msg.role === 'user' && (
+                  <div className="w-7 h-7 rounded-full bg-ink-faint/20 flex items-center justify-center shrink-0 mt-0.5">
+                    <span className="text-[10px] text-ink-muted font-medium">
+                      {(state.user?.name || 'U')[0]}
+                    </span>
+                  </div>
+                )}
+              </div>
+            ))}
+            {/* Streaming assistant reply */}
+            {archLoading && (
+              <div className="flex gap-3">
+                <div className="w-7 h-7 rounded-lg bg-gold/20 flex items-center justify-center shrink-0 mt-0.5">
+                  <Wand2 size={13} className="text-gold" />
+                </div>
+                <div className="max-w-[85%] rounded-xl px-3.5 py-2.5 text-xs leading-relaxed bg-surface text-ink border border-border">
+                  {archStream || (
+                    <span className="flex gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-gold/60 animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-gold/60 animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-gold/60 animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Input */}
+          <div className="flex gap-2">
+            <input
+              value={archMsg}
+              onChange={e => setArchMsg(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendArchMsg()}
+              placeholder="Describe your goal… e.g. 'Grow revenue by 40% in KSA'"
+              className="ff-input flex-1 text-sm"
+              disabled={archLoading}
+            />
+            <button
+              onClick={sendArchMsg}
+              disabled={!archMsg.trim() || archLoading}
+              className="w-10 h-10 rounded-xl bg-gold/15 hover:bg-gold/25 text-gold flex items-center justify-center shrink-0 transition-colors disabled:opacity-40"
+            >
+              <Send size={14} />
+            </button>
+          </div>
+          <p className="text-[10px] text-ink-faint text-center -mt-2">
+            When a valid OKR is generated, it will be automatically added to your Impactor board
+          </p>
         </div>
       )}
     </div>

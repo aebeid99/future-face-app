@@ -4,7 +4,7 @@ import {
   Send, Bot, X, Check, TrendingUp, CheckSquare, MessageSquare,
   Archive, RotateCcw, Flag, Calendar, Circle, CheckCircle2,
   AlertCircle, MinusCircle, Clock, Pencil, Zap, Share2,
-  MoreHorizontal, DollarSign, Link2, ChevronUp,
+  MoreHorizontal, DollarSign, Link2, ChevronUp, GripVertical,
 } from 'lucide-react'
 import Card from '../../components/ui/Card.jsx'
 import Btn from '../../components/ui/Btn.jsx'
@@ -24,10 +24,11 @@ import {
   CHECKIN_ADD, CHECKIN_DELETE,
   CHAT_ADD, CHAT_UPDATE_LAST,
   HIGHLIGHT,
+  OKR_REORDER, KR_MOVE, INITIATIVE_MOVE,
 } from '../../state/actions.js'
 import { t } from '../../utils/i18n.js'
 import { currentQuarter, quarterList, formatRelative } from '../../utils/formatting.js'
-import { streamChat, SYSTEM_PROMPTS } from '../../api/anthropic.js'
+import { streamGPT, OKR_ARCHITECT_PROMPT } from '../../api/openai.js'
 import { calcKrProgress, formatKrValue, KR_TYPES, KR_UNITS } from '../../utils/krMetrics.js'
 
 const QUARTERS  = quarterList(8)
@@ -760,6 +761,13 @@ function OkrExpandedPanel({ okr, members, user }) {
   const [activeTab,   setActiveTab]   = useState('krs')
   const [selectedIni, setSelectedIni] = useState(null)
   const [collapsedKrs, setCollapsedKrs] = useState({})
+  // KR drag state (reorder within same OKR)
+  const [dragKrIdx,   setDragKrIdx]   = useState(null)
+  const [overKrIdx,   setOverKrIdx]   = useState(null)
+  // Initiative drag state (move between KR buckets)
+  const [dragIniId,   setDragIniId]   = useState(null)   // initiative id being dragged
+  const [dragIniOkrId, setDragIniOkrId] = useState(null)
+  const [overKrKey,   setOverKrKey]   = useState(null)   // target KR bucket key
 
   const krs      = okr.keyResults  || []
   const inis     = okr.initiatives || []
@@ -850,7 +858,36 @@ function OkrExpandedPanel({ okr, members, user }) {
               <span className="text-xs">Add your first Key Result to measure progress</span>
             </button>
           )}
-          {krs.map(kr => <KrRow key={kr.id} kr={kr} okrId={okr.id} />)}
+          {krs.map((kr, kIdx) => (
+            <div key={kr.id}
+              draggable
+              onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.stopPropagation(); setDragKrIdx(kIdx) }}
+              onDragOver={e => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; setOverKrIdx(kIdx) }}
+              onDragLeave={() => setOverKrIdx(null)}
+              onDrop={e => {
+                e.preventDefault(); e.stopPropagation()
+                if (dragKrIdx !== null && dragKrIdx !== kIdx) {
+                  dispatch({ type: KR_MOVE, krId: krs[dragKrIdx].id, fromOkrId: okr.id, toOkrId: okr.id, toIndex: kIdx })
+                }
+                setDragKrIdx(null); setOverKrIdx(null)
+              }}
+              onDragEnd={() => { setDragKrIdx(null); setOverKrIdx(null) }}
+              className={[
+                'rounded-lg transition-all',
+                overKrIdx === kIdx && dragKrIdx !== kIdx ? 'ring-1 ring-gold/50 bg-gold/5' : '',
+                dragKrIdx === kIdx ? 'opacity-40' : '',
+              ].join(' ')}
+            >
+              <div className="flex items-center gap-1">
+                <span className="text-ink-faint opacity-0 hover:opacity-100 cursor-grab active:cursor-grabbing pl-1 shrink-0 transition-opacity">
+                  <GripVertical size={12} />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <KrRow kr={kr} okrId={okr.id} />
+                </div>
+              </div>
+            </div>
+          ))}
           {addingKr && <KrAddRow okrId={okr.id} onDone={() => setAddingKr(false)} />}
         </div>
       )}
@@ -874,7 +911,21 @@ function OkrExpandedPanel({ okr, members, user }) {
             const krOwner     = kr?.owner || okr.owner
 
             return (
-              <div key={key} className="rounded-xl overflow-hidden border border-border">
+              <div key={key}
+                onDragOver={e => { e.preventDefault(); e.stopPropagation(); setOverKrKey(key) }}
+                onDragLeave={() => setOverKrKey(null)}
+                onDrop={e => {
+                  e.preventDefault(); e.stopPropagation()
+                  if (dragIniId && overKrKey === key) {
+                    const targetKrId = key === '_unlinked' ? null : key
+                    dispatch({ type: INITIATIVE_MOVE, iniId: dragIniId, fromOkrId: dragIniOkrId || okr.id, toOkrId: okr.id, toKrId: targetKrId })
+                  }
+                  setDragIniId(null); setDragIniOkrId(null); setOverKrKey(null)
+                }}
+                className={[
+                  'rounded-xl overflow-hidden border transition-all',
+                  overKrKey === key && dragIniId ? 'border-gold/50 shadow-[0_0_10px_rgba(234,197,12,0.1)]' : 'border-border',
+                ].join(' ')}>
                 {/* KR Header — dark navy style from screenshot 2 */}
                 <div
                   className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer select-none ${
@@ -937,7 +988,21 @@ function OkrExpandedPanel({ okr, members, user }) {
                       </div>
                     )}
                     {krInis.map(ini => (
-                      <InitiativeRow key={ini.id} ini={ini} okr={okr} onSelect={setSelectedIni} />
+                      <div key={ini.id}
+                        draggable
+                        onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.stopPropagation(); setDragIniId(ini.id); setDragIniOkrId(okr.id) }}
+                        onDragEnd={() => { setDragIniId(null); setDragIniOkrId(null); setOverKrKey(null) }}
+                        className={dragIniId === ini.id ? 'opacity-40' : ''}
+                      >
+                        <div className="flex items-center">
+                          <span className="text-ink-faint opacity-0 hover:opacity-100 cursor-grab active:cursor-grabbing pl-2 shrink-0 transition-opacity">
+                            <GripVertical size={11} />
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <InitiativeRow ini={ini} okr={okr} onSelect={setSelectedIni} />
+                          </div>
+                        </div>
+                      </div>
                     ))}
                     {/* Inline add row for this KR bucket */}
                     {addingIni && (addingKrId === key || (addingKrId === null && key === (groupedInis[0]?.key || '_unlinked'))) && (
@@ -1060,6 +1125,8 @@ export default function ImpactorPage() {
   const [aiLoading,     setAiLoading]     = useState(false)
   const [newOkr,        setNewOkr]        = useState({ title: '', quarter: currentQuarter(), owner: user?.name || '' })
   const [highlightId,   setHighlightId]   = useState(null)
+  const [dragOkrIdx,    setDragOkrIdx]    = useState(null)
+  const [overOkrIdx,    setOverOkrIdx]    = useState(null)
 
   const cardRefs = useRef({})
 
@@ -1117,30 +1184,34 @@ export default function ImpactorPage() {
   const archiveOkr = (id) => dispatch({ type: OKR_UPDATE, id, updates: { archived: true  } })
   const restoreOkr = (id) => dispatch({ type: OKR_UPDATE, id, updates: { archived: false } })
 
-  // AI Architect
+  // AI Architect — powered by ChatGPT (gpt-4o)
   const sendAiMsg = async () => {
     if (!aiMsg.trim() || aiLoading) return
     const userMsg = { role: 'user', content: aiMsg }
     dispatch({ type: CHAT_ADD, message: userMsg })
     setAiMsg('')
     setAiLoading(true)
-    dispatch({ type: CHAT_ADD, message: { role: 'assistant', content: '...' } })
+    dispatch({ type: CHAT_ADD, message: { role: 'assistant', content: '…' } })
     try {
-      await streamChat({
+      await streamGPT({
         messages: [...chatHistory, userMsg],
-        systemPrompt: SYSTEM_PROMPTS.okrArchitect,
+        systemPrompt: OKR_ARCHITECT_PROMPT,
         onChunk: (_, full) => dispatch({ type: CHAT_UPDATE_LAST, updates: { content: full } }),
         onDone: (full) => {
           dispatch({ type: CHAT_UPDATE_LAST, updates: { content: full } })
+          // Auto-populate the Create OKR form if JSON block found
           const m = full.match(/```json\n([\s\S]*?)\n```/)
           if (m) {
             try {
               const p = JSON.parse(m[1])
-              if (p.objective) { setNewOkr({ title: p.objective, quarter: currentQuarter(), owner: user?.name || '' }); setNewOkrOpen(true) }
+              if (p.objective) {
+                setNewOkr({ title: p.objective, quarter: p.quarter || currentQuarter(), owner: user?.name || '' })
+                setNewOkrOpen(true)
+              }
             } catch {}
           }
         },
-        onError: (err) => dispatch({ type: CHAT_UPDATE_LAST, updates: { content: `Error: ${err}` } }),
+        onError: (err) => dispatch({ type: CHAT_UPDATE_LAST, updates: { content: `⚠️ ChatGPT error: ${err}` } }),
       })
     } finally { setAiLoading(false) }
   }
@@ -1179,14 +1250,41 @@ export default function ImpactorPage() {
           action={() => setNewOkrOpen(true)} actionLabel={tr('okr_new')} />
       ) : (
         <div className="space-y-3">
-          {filteredOkrs.map(okr => (
+          {filteredOkrs.map((okr, idx) => (
             <div key={okr.id} ref={el => { cardRefs.current[okr.id] = el }}
-              className={`rounded-xl transition-all ${highlightId === okr.id ? 'ring-2 ring-gold/60 shadow-[0_0_20px_rgba(234,197,12,0.15)]' : ''}`}>
+              draggable
+              onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; setDragOkrIdx(idx) }}
+              onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setOverOkrIdx(idx) }}
+              onDragLeave={() => setOverOkrIdx(null)}
+              onDrop={e => {
+                e.preventDefault()
+                if (dragOkrIdx !== null && dragOkrIdx !== idx) {
+                  const fromId = filteredOkrs[dragOkrIdx]?.id
+                  const toId   = filteredOkrs[idx]?.id
+                  const fromRealIdx = okrs.findIndex(o => o.id === fromId)
+                  const toRealIdx   = okrs.findIndex(o => o.id === toId)
+                  if (fromRealIdx !== -1 && toRealIdx !== -1)
+                    dispatch({ type: OKR_REORDER, fromIndex: fromRealIdx, toIndex: toRealIdx })
+                }
+                setDragOkrIdx(null); setOverOkrIdx(null)
+              }}
+              onDragEnd={() => { setDragOkrIdx(null); setOverOkrIdx(null) }}
+              className={[
+                'rounded-xl transition-all',
+                highlightId === okr.id ? 'ring-2 ring-gold/60 shadow-[0_0_20px_rgba(234,197,12,0.15)]' : '',
+                overOkrIdx === idx && dragOkrIdx !== idx ? 'ring-2 ring-gold/40 scale-[1.01]' : '',
+                dragOkrIdx === idx ? 'opacity-40' : '',
+              ].join(' ')}>
             <Card
               className={`overflow-hidden group/card ${okr.archived ? 'opacity-60' : ''}`}
             >
               {/* OKR header */}
               <div className="flex items-center gap-3 cursor-pointer select-none" onClick={() => toggle(okr.id)}>
+                {/* Drag handle */}
+                <span className="text-ink-faint opacity-0 group-hover/card:opacity-100 cursor-grab active:cursor-grabbing shrink-0 transition-opacity"
+                  onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
+                  <GripVertical size={14} />
+                </span>
                 <button className="text-ink-muted shrink-0">
                   {expanded[okr.id] ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                 </button>

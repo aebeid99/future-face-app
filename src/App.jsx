@@ -20,6 +20,9 @@ import BillingPage      from './pages/app/BillingPage.jsx'
 import SettingsPage     from './pages/app/SettingsPage.jsx'
 import AuditPage        from './pages/app/AuditPage.jsx'
 import SalesPage        from './pages/app/SalesPage.jsx'
+import StrategyPage     from './pages/app/StrategyPage.jsx'
+import AllIssuesPage    from './pages/app/AllIssuesPage.jsx'
+import CRMPage          from './pages/app/CRMPage.jsx'
 
 // ─── Router ───────────────────────────────────────────────────
 function Router() {
@@ -42,15 +45,18 @@ function Router() {
 
   // App routes (inside AppShell)
   const appPages = {
-    dashboard: <DashboardPage />,
-    impactor:  <ImpactorPage />,
-    robox:     <RoboxPage />,
-    ai_pilot:  <AIPilotPage />,
-    roadmap:   <RoadmapPage />,
-    billing:   <BillingPage />,
-    settings:  <SettingsPage />,
-    audit:     <AuditPage />,
-    sales:     <SalesPage />,
+    dashboard:  <DashboardPage />,
+    strategy:   <StrategyPage />,
+    impactor:   <ImpactorPage />,
+    robox:      <RoboxPage />,
+    ai_pilot:   <AIPilotPage />,
+    roadmap:    <RoadmapPage />,
+    all_issues: <AllIssuesPage />,
+    crm:        <CRMPage />,
+    sales:      <SalesPage />,
+    billing:    <BillingPage />,
+    settings:   <SettingsPage />,
+    audit:      <AuditPage />,
   }
 
   const content = appPages[page] ?? <DashboardPage />

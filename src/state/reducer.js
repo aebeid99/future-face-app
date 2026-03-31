@@ -67,13 +67,86 @@ export function reducer(state, action) {
       return { ...state, lang: action.lang }
 
     // ─── OKR ──────────────────────────────────────────────────
+    case A.NORTHSTAR_SET:
+      return { ...state, northStar: { ...state.northStar, ...action.updates } }
+
+    case A.OKR_REORDER: {
+      const { fromIndex, toIndex } = action
+      if (fromIndex === toIndex) return state
+      const arr = [...state.okrs]
+      const [moved] = arr.splice(fromIndex, 1)
+      arr.splice(toIndex, 0, moved)
+      return { ...state, okrs: arr }
+    }
+
+    case A.KR_MOVE: {
+      const { krId, fromOkrId, toOkrId, toIndex } = action
+      if (fromOkrId === toOkrId) {
+        // Reorder within same OKR
+        return {
+          ...state,
+          okrs: state.okrs.map(o => {
+            if (o.id !== fromOkrId) return o
+            const krs = [...(o.keyResults || [])]
+            const fromIdx = krs.findIndex(k => k.id === krId)
+            if (fromIdx === -1) return o
+            const [moved] = krs.splice(fromIdx, 1)
+            krs.splice(toIndex ?? krs.length, 0, moved)
+            return recalcOkr(o, krs)
+          }),
+        }
+      }
+      // Move to different OKR
+      let movedKr = null
+      const updated = state.okrs.map(o => {
+        if (o.id === fromOkrId) {
+          const krs = (o.keyResults || []).filter(k => { if (k.id === krId) { movedKr = k; return false } return true })
+          return recalcOkr(o, krs)
+        }
+        return o
+      })
+      if (!movedKr) return state
+      return {
+        ...state,
+        okrs: updated.map(o => {
+          if (o.id !== toOkrId) return o
+          const krs = [...(o.keyResults || []), movedKr]
+          return recalcOkr(o, krs)
+        }),
+      }
+    }
+
+    case A.INITIATIVE_MOVE: {
+      const { iniId, fromOkrId, toOkrId, toKrId } = action
+      let movedIni = null
+      const updated = state.okrs.map(o => {
+        if (o.id === fromOkrId) {
+          const inis = (o.initiatives || []).filter(i => { if (i.id === iniId) { movedIni = i; return false } return true })
+          return { ...o, initiatives: inis }
+        }
+        return o
+      })
+      if (!movedIni) return state
+      const reparented = { ...movedIni, krId: toKrId ?? movedIni.krId }
+      return {
+        ...state,
+        okrs: updated.map(o => {
+          if (o.id !== toOkrId) return o
+          return { ...o, initiatives: [...(o.initiatives || []), reparented] }
+        }),
+      }
+    }
+
     case A.OKR_CREATE: {
       const newOKR = {
         id: `okr_${Date.now()}`,
         title: action.title,
         owner: action.owner || state.user?.name,
         quarter: action.quarter || 'Q2 2026',
-        status: action.status || 'on_track',
+        cadence: action.cadence || 'Quarterly',
+        status: action.status || 'not_started',
+        confidence: action.confidence ?? 60,
+        summary: action.summary || '',
         progress: 0,
         keyResults: [],
         initiatives: [],
@@ -326,6 +399,10 @@ export function reducer(state, action) {
     case A.HIGHLIGHT:
       return { ...state, highlight: { id: action.id, okrId: action.okrId || null, ts: Date.now() } }
 
+    // ─── Workflow config ───────────────────────────────────────
+    case A.WORKFLOW_CONFIG_SET:
+      return { ...state, workflowConfig: { ...state.workflowConfig, ...action.updates } }
+
     // ─── Demo ─────────────────────────────────────────────────
     case A.DEMO_PLAN:
       return { ...state, demoVariant: action.variant }
@@ -342,6 +419,18 @@ export const INIT_STATE = {
   lang: 'en',
   demoVariant: 'A',
   highlight: null,   // { id, okrId, ts } — set by HIGHLIGHT action, cleared by component
+
+  northStar: {
+    title: 'Weekly Active Paying Workspaces',
+    metricLabel: 'WAW',
+    target: 1500,
+    current: 124,
+  },
+
+  workflowConfig: {
+    stages: ['To Do', 'In Progress', 'In Review', 'Shipped', 'Blocked'],
+    issueTypes: ['Feature', 'Bug', 'Task', 'Epic'],
+  },
 
   user: null,
   org: {
@@ -373,7 +462,10 @@ export const INIT_STATE = {
       title: 'Grow enterprise customer base in KSA',
       owner: 'Ahmed',
       quarter: 'Q2 2026',
+      cadence: 'Quarterly',
       status: 'on_track',
+      confidence: 78,
+      summary: 'Drive outbound sales and enterprise pipeline to hit ARR targets in the KSA market.',
       progress: 42,
       tags: ['growth', 'enterprise'],
       vision2030: null,
@@ -419,7 +511,10 @@ export const INIT_STATE = {
       title: 'Deliver world-class product experience',
       owner: 'Ahmed',
       quarter: 'Q2 2026',
+      cadence: 'Quarterly',
       status: 'at_risk',
+      confidence: 45,
+      summary: 'Reduce friction in onboarding and increase NPS to drive long-term retention.',
       progress: 28,
       tags: ['product', 'cx'],
       vision2030: null,
@@ -455,7 +550,10 @@ export const INIT_STATE = {
       title: 'Build a high-performance sales team',
       owner: 'Ahmed',
       quarter: 'Q2 2026',
+      cadence: 'Quarterly',
       status: 'on_track',
+      confidence: 65,
+      summary: 'Hire, onboard, and enable a sales team that consistently hits quota and shortens deal cycles.',
       progress: 0,
       tags: ['people'],
       vision2030: null,

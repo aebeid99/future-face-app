@@ -45,5 +45,19 @@ export const STATUS_CONFIG = 'STATUS_CONFIG'
 // ─── UI / Navigation helpers ──────────────────────────────────
 export const HIGHLIGHT     = 'HIGHLIGHT'   // pulse-highlight an OKR/KR row
 
+// ─── North Star ───────────────────────────────────────────────
+export const NORTHSTAR_SET = 'NORTHSTAR_SET'
+
+// ─── Drag / Reorder ───────────────────────────────────────────
+export const OKR_REORDER         = 'OKR_REORDER'         // { fromIndex, toIndex }
+export const KR_MOVE             = 'KR_MOVE'             // { krId, fromOkrId, toOkrId, toIndex }
+export const INITIATIVE_MOVE     = 'INITIATIVE_MOVE'     // { iniId, fromOkrId, toOkrId, toKrId, toIndex }
+
+// ─── Issues ───────────────────────────────────────────────────
+export const ISSUE_CREATE        = 'ISSUE_CREATE'
+export const ISSUE_UPDATE        = 'ISSUE_UPDATE'
+export const ISSUE_DELETE        = 'ISSUE_DELETE'
+export const WORKFLOW_CONFIG_SET = 'WORKFLOW_CONFIG_SET'
+
 // ─── Demo ─────────────────────────────────────────────────────
 export const DEMO_PLAN     = 'DEMO_PLAN'
