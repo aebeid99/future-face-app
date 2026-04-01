@@ -1,10 +1,10 @@
 import { useState, useMemo } from 'react'
 import {
   Layers, List, LayoutGrid, GitBranch, Settings2, Plus,
-  Filter, Search, ChevronDown, GripVertical, Circle,
+  Filter, Search, ChevronDown, Circle,
   CheckCircle2, AlertCircle, Clock, Zap, Bug, Star, BookOpen,
   MoreHorizontal, Tag, User2, Calendar, ArrowUpRight, X, Save,
-  ChevronRight, Trash2, Edit2,
+  ChevronRight, Trash2, Edit2, ArrowUpDown, AlertTriangle,
 } from 'lucide-react'
 import { useApp } from '@/state/AppContext'
 import { INITIATIVE_UPDATE, INITIATIVE_CREATE, INITIATIVE_DELETE, OKR_UPDATE } from '@/state/actions'
@@ -30,9 +30,9 @@ const STATUS_CFG = {
 }
 
 const PRIORITY_CFG = {
-  p1: { label: 'P1 High',   color: 'text-red-400 bg-red-500/10',    dot: '🔴' },
-  p2: { label: 'P2 Medium', color: 'text-amber-400 bg-amber-500/10', dot: '🟡' },
-  p3: { label: 'P3 Low',    color: 'text-gray-400 bg-gray-500/10',   dot: '⚪' },
+  p1: { label: 'P1 High',   color: 'text-red-400 bg-red-500/10',    dot: '🔴', order: 0 },
+  p2: { label: 'P2 Medium', color: 'text-amber-400 bg-amber-500/10', dot: '🟡', order: 1 },
+  p3: { label: 'P3 Low',    color: 'text-gray-400 bg-gray-500/10',   dot: '⚪', order: 2 },
 }
 
 const KANBAN_COLS = [
@@ -43,8 +43,17 @@ const KANBAN_COLS = [
   { id: 'blocked',     label: 'Blocked',     icon: AlertCircle },
 ]
 
+// ── Sort options ─────────────────────────────────────────────────────────────
+const SORT_OPTIONS = [
+  { id: 'smart',    label: 'Priority (OKR Order)' },
+  { id: 'status',   label: 'Status' },
+  { id: 'type',     label: 'Type' },
+  { id: 'dueDate',  label: 'Due Date' },
+  { id: 'priority', label: 'Priority (P1–P3)' },
+]
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
-function StatusPill({ status, size = 'sm' }) {
+function StatusPill({ status }) {
   const cfg = STATUS_CFG[status] || STATUS_CFG.not_started
   return (
     <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${cfg.color}`}>
@@ -70,58 +79,139 @@ function useAllIssues() {
   const { state } = useApp()
   return useMemo(() => {
     const issues = []
-    for (const okr of (state.okrs || [])) {
-      for (const ini of (okr.initiatives || [])) {
-        const kr = (okr.keyResults || []).find(k => k.id === ini.krId)
+    ;(state.okrs || []).forEach((okr, okrIdx) => {
+      ;(okr.initiatives || []).forEach((ini, iniIdx) => {
+        const krIdx = okr.keyResults
+          ? okr.keyResults.findIndex(k => k.id === ini.krId)
+          : -1
+        const kr = krIdx >= 0 ? okr.keyResults[krIdx] : null
         issues.push({
           ...ini,
           issueType: ini.issueType || 'feature',
           okrId:     okr.id,
           okrTitle:  okr.title,
+          okrIdx,        // position of the OKR in the list (for smart sort)
           krTitle:   kr?.title || null,
+          krIdx: krIdx >= 0 ? krIdx : 9999,   // position of KR within OKR
+          iniIdx,        // position of initiative within OKR
         })
-      }
-    }
+      })
+    })
     return issues
   }, [state.okrs])
 }
 
+// ── Smart sort: blocked first, then by OKR→KR→ini order ─────────────────────
+function smartSort(issues) {
+  return [...issues].sort((a, b) => {
+    // Risks & blockers always float to top
+    const aBlocked = a.status === 'blocked' ? 0 : 1
+    const bBlocked = b.status === 'blocked' ? 0 : 1
+    if (aBlocked !== bBlocked) return aBlocked - bBlocked
+    // Then by OKR listing order
+    if (a.okrIdx !== b.okrIdx) return a.okrIdx - b.okrIdx
+    // Then by KR order within OKR
+    if (a.krIdx !== b.krIdx) return a.krIdx - b.krIdx
+    // Then by initiative order within OKR
+    return a.iniIdx - b.iniIdx
+  })
+}
+
+function applySortOverride(issues, sortBy) {
+  if (sortBy === 'smart') return smartSort(issues)
+  return [...issues].sort((a, b) => {
+    if (sortBy === 'status') {
+      const statusOrder = { blocked: 0, in_progress: 1, in_review: 2, not_started: 3, done: 4 }
+      return (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5)
+    }
+    if (sortBy === 'priority') {
+      return (PRIORITY_CFG[a.priority]?.order ?? 5) - (PRIORITY_CFG[b.priority]?.order ?? 5)
+    }
+    if (sortBy === 'dueDate') {
+      const da = a.dueDate ? new Date(a.dueDate) : new Date('9999')
+      const db = b.dueDate ? new Date(b.dueDate) : new Date('9999')
+      return da - db
+    }
+    if (sortBy === 'type') {
+      return (a.issueType || '').localeCompare(b.issueType || '')
+    }
+    return 0
+  })
+}
+
 // ── Issue row (backlog) ──────────────────────────────────────────────────────
-function IssueRow({ issue, okrs, onUpdate, onDelete, dragHandlers, isDragging }) {
+function IssueRow({ issue, okrs, onUpdate, onDelete }) {
   const [editing, setEditing] = useState(false)
-  const [form, setForm] = useState({ title: issue.title, status: issue.status, priority: issue.priority, issueType: issue.issueType || 'feature' })
+  const [form, setForm] = useState({
+    title: issue.title,
+    status: issue.status,
+    priority: issue.priority,
+    issueType: issue.issueType || 'feature',
+  })
 
   const save = () => {
     onUpdate(issue.okrId, issue.id, form)
     setEditing(false)
   }
 
-  const TypeIcon = (ISSUE_TYPES[issue.issueType || 'feature']?.icon) || Star
+  const isBlocked = issue.status === 'blocked'
 
   return (
     <div
-      {...(dragHandlers || {})}
-      className={`group flex items-center gap-3 px-4 py-2.5 rounded-xl border border-transparent hover:border-border hover:bg-surface transition-all ${isDragging ? 'opacity-30' : ''}`}
+      className={`group flex items-center gap-3 px-4 py-2.5 rounded-xl border hover:bg-surface transition-all ${
+        isBlocked
+          ? 'border-red-500/20 bg-red-500/5'
+          : 'border-transparent hover:border-border'
+      }`}
     >
-      <div className="text-ink-faint group-hover:text-ink-muted cursor-grab flex-shrink-0">
-        <GripVertical size={13} />
-      </div>
+      {/* Blocked indicator */}
+      {isBlocked && (
+        <AlertTriangle size={12} className="text-red-400 flex-shrink-0" />
+      )}
+
       <TypeBadge type={issue.issueType || 'feature'} />
       <span className={`text-[10px] font-medium px-1.5 rounded ${PRIORITY_CFG[issue.priority]?.color || ''}`}>
         {issue.priority?.toUpperCase() || 'P2'}
       </span>
+
       {editing ? (
-        <input className="ff-input text-sm flex-1 py-1" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} autoFocus onBlur={save} onKeyDown={e => e.key === 'Enter' && save()} />
+        <input
+          className="ff-input text-sm flex-1 py-1"
+          value={form.title}
+          onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+          autoFocus
+          onBlur={save}
+          onKeyDown={e => e.key === 'Enter' && save()}
+        />
       ) : (
         <span className="flex-1 text-sm text-ink truncate">{issue.title}</span>
       )}
+
       <StatusPill status={issue.status} />
-      <span className="text-xs text-ink-faint truncate max-w-[120px] hidden lg:block" title={issue.okrTitle}>{issue.krTitle || issue.okrTitle}</span>
+      <span
+        className="text-xs text-ink-faint truncate max-w-[120px] hidden lg:block"
+        title={issue.okrTitle}
+      >
+        {issue.krTitle || issue.okrTitle}
+      </span>
       {issue.owner && <Avatar name={issue.owner} size="xs" />}
-      {issue.dueDate && <span className="text-[10px] text-ink-muted hidden xl:block">{issue.dueDate}</span>}
+      {issue.dueDate && (
+        <span className="text-[10px] text-ink-muted hidden xl:block">{issue.dueDate}</span>
+      )}
+
       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button onClick={() => setEditing(true)} className="p-1 text-ink-faint hover:text-ink rounded"><Edit2 size={11} /></button>
-        <button onClick={() => onDelete(issue.okrId, issue.id)} className="p-1 text-ink-faint hover:text-red-400 rounded"><Trash2 size={11} /></button>
+        <button
+          onClick={() => setEditing(true)}
+          className="p-1 text-ink-faint hover:text-ink rounded"
+        >
+          <Edit2 size={11} />
+        </button>
+        <button
+          onClick={() => onDelete(issue.okrId, issue.id)}
+          className="p-1 text-ink-faint hover:text-red-400 rounded"
+        >
+          <Trash2 size={11} />
+        </button>
       </div>
     </div>
   )
@@ -129,39 +219,83 @@ function IssueRow({ issue, okrs, onUpdate, onDelete, dragHandlers, isDragging })
 
 // ── Backlog Tab ──────────────────────────────────────────────────────────────
 function BacklogTab({ issues, okrs, onUpdate, onDelete }) {
-  const [search, setSearch]   = useState('')
+  const [search, setSearch]         = useState('')
   const [filterType, setFilterType] = useState('all')
   const [filterStatus, setFilterStatus] = useState('all')
-  const [dragIdx, setDragIdx] = useState(null)
+  const [sortBy, setSortBy]         = useState('smart')
 
-  const filtered = issues.filter(i => {
-    if (search && !i.title.toLowerCase().includes(search.toLowerCase())) return false
-    if (filterType !== 'all' && (i.issueType || 'feature') !== filterType) return false
-    if (filterStatus !== 'all' && i.status !== filterStatus) return false
-    return true
-  })
+  const filtered = useMemo(() => {
+    let list = issues.filter(i => {
+      if (search && !i.title.toLowerCase().includes(search.toLowerCase())) return false
+      if (filterType !== 'all' && (i.issueType || 'feature') !== filterType) return false
+      if (filterStatus !== 'all' && i.status !== filterStatus) return false
+      return true
+    })
+    return applySortOverride(list, sortBy)
+  }, [issues, search, filterType, filterStatus, sortBy])
+
+  const blockedCount = filtered.filter(i => i.status === 'blocked').length
 
   return (
     <div>
-      {/* Filters */}
-      <div className="flex items-center gap-3 mb-4">
+      {/* Filters + Sort */}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
         <div className="relative flex-1 max-w-xs">
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" />
-          <input className="ff-input pl-8 text-sm" placeholder="Search issues…" value={search} onChange={e => setSearch(e.target.value)} />
+          <input
+            className="ff-input pl-8 text-sm"
+            placeholder="Search issues…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
         </div>
-        <select className="ff-input text-sm w-auto" value={filterType} onChange={e => setFilterType(e.target.value)}>
+        <select
+          className="ff-input text-sm w-auto"
+          value={filterType}
+          onChange={e => setFilterType(e.target.value)}
+        >
           <option value="all">All types</option>
-          {Object.entries(ISSUE_TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+          {Object.entries(ISSUE_TYPES).map(([k, v]) => (
+            <option key={k} value={k}>{v.label}</option>
+          ))}
         </select>
-        <select className="ff-input text-sm w-auto" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+        <select
+          className="ff-input text-sm w-auto"
+          value={filterStatus}
+          onChange={e => setFilterStatus(e.target.value)}
+        >
           <option value="all">All statuses</option>
-          {Object.entries(STATUS_CFG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+          {Object.entries(STATUS_CFG).map(([k, v]) => (
+            <option key={k} value={k}>{v.label}</option>
+          ))}
         </select>
+
+        {/* Sort override — view only, doesn't change ticket priority */}
+        <div className="flex items-center gap-1.5 ml-auto">
+          <ArrowUpDown size={12} className="text-ink-muted" />
+          <select
+            className="ff-input text-sm w-auto"
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value)}
+            title="View sort (does not change ticket priority)"
+          >
+            {SORT_OPTIONS.map(o => (
+              <option key={o.id} value={o.id}>{o.label}</option>
+            ))}
+          </select>
+        </div>
       </div>
+
+      {/* Blocked banner */}
+      {blockedCount > 0 && (
+        <div className="flex items-center gap-2 px-4 py-2 mb-3 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-400">
+          <AlertTriangle size={12} />
+          <span><strong>{blockedCount} blocked</strong> {blockedCount === 1 ? 'item' : 'items'} surfaced to top</span>
+        </div>
+      )}
 
       {/* Column headers */}
       <div className="flex items-center gap-3 px-4 py-2 text-[10px] font-semibold text-ink-muted uppercase tracking-wider border-b border-border mb-1">
-        <span className="w-4" />
         <span className="w-14">Type</span>
         <span className="w-10">Pri</span>
         <span className="flex-1">Title</span>
@@ -173,19 +307,13 @@ function BacklogTab({ issues, okrs, onUpdate, onDelete }) {
       </div>
 
       <div className="space-y-0.5">
-        {filtered.map((issue, idx) => (
+        {filtered.map((issue) => (
           <IssueRow
             key={issue.id}
             issue={issue}
             okrs={okrs}
             onUpdate={onUpdate}
             onDelete={onDelete}
-            isDragging={dragIdx === idx}
-            dragHandlers={{
-              draggable: true,
-              onDragStart: () => setDragIdx(idx),
-              onDragEnd: () => setDragIdx(null),
-            }}
           />
         ))}
         {filtered.length === 0 && (
@@ -195,7 +323,16 @@ function BacklogTab({ issues, okrs, onUpdate, onDelete }) {
         )}
       </div>
 
-      <div className="mt-3 text-[10px] text-ink-muted pl-4">{filtered.length} issue{filtered.length !== 1 ? 's' : ''}</div>
+      <div className="mt-3 flex items-center gap-3 pl-4">
+        <span className="text-[10px] text-ink-muted">
+          {filtered.length} issue{filtered.length !== 1 ? 's' : ''}
+        </span>
+        {sortBy !== 'smart' && (
+          <span className="text-[10px] text-gold/70">
+            ↕ View sorted by {SORT_OPTIONS.find(o => o.id === sortBy)?.label} — ticket priority unchanged
+          </span>
+        )}
+      </div>
     </div>
   )
 }
@@ -213,12 +350,16 @@ function KanbanCard({ issue, onUpdate, isDragOver, dragHandlers }) {
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-1.5">
           <TypeBadge type={issue.issueType || 'feature'} />
-          <span className={`text-[9px] font-semibold px-1.5 rounded ${pCfg.color}`}>{issue.priority?.toUpperCase()}</span>
+          <span className={`text-[9px] font-semibold px-1.5 rounded ${pCfg.color}`}>
+            {issue.priority?.toUpperCase()}
+          </span>
         </div>
       </div>
       <p className="text-xs font-medium text-ink leading-snug mb-2">{issue.title}</p>
       <div className="flex items-center justify-between">
-        <span className="text-[10px] text-ink-faint truncate max-w-[110px]">{issue.krTitle || issue.okrTitle}</span>
+        <span className="text-[10px] text-ink-faint truncate max-w-[110px]">
+          {issue.krTitle || issue.okrTitle}
+        </span>
         {issue.owner && <Avatar name={issue.owner} size="xs" />}
       </div>
       {issue.dueDate && (
@@ -261,7 +402,9 @@ function KanbanTab({ issues, onUpdate }) {
             <div className="flex items-center gap-2 px-3 py-2 mb-2">
               <ColIcon size={13} className={STATUS_CFG[col.id]?.dot.replace('bg-', 'text-') || 'text-ink-muted'} />
               <span className="text-xs font-semibold text-ink">{col.label}</span>
-              <span className="ml-auto text-xs text-ink-muted bg-border px-1.5 py-0.5 rounded-full">{colIssues.length}</span>
+              <span className="ml-auto text-xs text-ink-muted bg-border px-1.5 py-0.5 rounded-full">
+                {colIssues.length}
+              </span>
             </div>
 
             {/* Cards */}
@@ -304,12 +447,13 @@ function EpicsTab({ issues }) {
         const okrIssues = issues.filter(i => i.okrId === okr.id)
         if (okrIssues.length === 0) return null
         const shipped = okrIssues.filter(i => i.status === 'done').length
-        const pct = okrIssues.length > 0 ? Math.round((shipped / okrIssues.length) * 100) : 0
-        const open = expanded[okr.id] !== false
+        const blocked = okrIssues.filter(i => i.status === 'blocked').length
+        const pct     = okrIssues.length > 0 ? Math.round((shipped / okrIssues.length) * 100) : 0
+        const open    = expanded[okr.id] !== false
 
         return (
           <div key={okr.id} className="bg-surface border border-border rounded-xl overflow-hidden">
-            {/* Epic header (the OKR as epic) */}
+            {/* Epic header */}
             <div
               className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-dark transition-colors"
               onClick={() => toggle(okr.id)}
@@ -319,6 +463,11 @@ function EpicsTab({ issues }) {
               </div>
               <span className="font-semibold text-sm text-ink flex-1">{okr.title}</span>
               <div className="flex items-center gap-3">
+                {blocked > 0 && (
+                  <span className="flex items-center gap-1 text-[10px] text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full">
+                    <AlertTriangle size={9} />{blocked} blocked
+                  </span>
+                )}
                 <div className="flex items-center gap-1.5">
                   <div className="w-20 h-1 bg-dark rounded-full overflow-hidden">
                     <div className="h-full bg-green-500 rounded-full" style={{ width: `${pct}%` }} />
@@ -382,11 +531,10 @@ function WorkflowTab() {
     <div className="max-w-xl space-y-6">
       <div>
         <p className="text-sm font-semibold text-ink mb-3">Workflow Stages</p>
-        <p className="text-xs text-ink-muted mb-3">Define the stages issues move through. Drag to reorder.</p>
+        <p className="text-xs text-ink-muted mb-3">Define the stages issues move through.</p>
         <div className="space-y-2 mb-3">
           {cfg.stages.map((stage, i) => (
             <div key={i} className="flex items-center gap-2 bg-surface border border-border rounded-xl px-3 py-2">
-              <GripVertical size={13} className="text-ink-faint" />
               <span className="flex-1 text-sm text-ink">{stage}</span>
               <button
                 onClick={() => dispatch({ type: 'WORKFLOW_CONFIG_SET', updates: { stages: cfg.stages.filter((_, j) => j !== i) } })}
@@ -398,8 +546,24 @@ function WorkflowTab() {
           ))}
         </div>
         <div className="flex gap-2">
-          <input className="ff-input text-sm flex-1" placeholder="Add new stage…" value={newStage} onChange={e => setNewStage(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newStage.trim()) { dispatch({ type: 'WORKFLOW_CONFIG_SET', updates: { stages: [...cfg.stages, newStage.trim()] } }); setNewStage('') } }} />
-          <Btn size="sm" variant="primary" onClick={() => { if (newStage.trim()) { dispatch({ type: 'WORKFLOW_CONFIG_SET', updates: { stages: [...cfg.stages, newStage.trim()] } }); setNewStage('') } }}>
+          <input
+            className="ff-input text-sm flex-1"
+            placeholder="Add new stage…"
+            value={newStage}
+            onChange={e => setNewStage(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && newStage.trim()) {
+                dispatch({ type: 'WORKFLOW_CONFIG_SET', updates: { stages: [...cfg.stages, newStage.trim()] } })
+                setNewStage('')
+              }
+            }}
+          />
+          <Btn size="sm" variant="primary" onClick={() => {
+            if (newStage.trim()) {
+              dispatch({ type: 'WORKFLOW_CONFIG_SET', updates: { stages: [...cfg.stages, newStage.trim()] } })
+              setNewStage('')
+            }
+          }}>
             <Plus size={13} />Add
           </Btn>
         </div>
@@ -411,14 +575,34 @@ function WorkflowTab() {
           {cfg.issueTypes.map((type, i) => (
             <div key={i} className="flex items-center gap-2 bg-surface border border-border rounded-xl px-3 py-2">
               <span className="flex-1 text-sm text-ink">{type}</span>
-              <button onClick={() => dispatch({ type: 'WORKFLOW_CONFIG_SET', updates: { issueTypes: cfg.issueTypes.filter((_, j) => j !== i) } })}
-                className="p-1 text-ink-faint hover:text-red-400 rounded transition-colors"><X size={11} /></button>
+              <button
+                onClick={() => dispatch({ type: 'WORKFLOW_CONFIG_SET', updates: { issueTypes: cfg.issueTypes.filter((_, j) => j !== i) } })}
+                className="p-1 text-ink-faint hover:text-red-400 rounded transition-colors"
+              >
+                <X size={11} />
+              </button>
             </div>
           ))}
         </div>
         <div className="flex gap-2">
-          <input className="ff-input text-sm flex-1" placeholder="Add issue type…" value={newType} onChange={e => setNewType(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newType.trim()) { dispatch({ type: 'WORKFLOW_CONFIG_SET', updates: { issueTypes: [...cfg.issueTypes, newType.trim()] } }); setNewType('') } }} />
-          <Btn size="sm" variant="primary" onClick={() => { if (newType.trim()) { dispatch({ type: 'WORKFLOW_CONFIG_SET', updates: { issueTypes: [...cfg.issueTypes, newType.trim()] } }); setNewType('') } }}>
+          <input
+            className="ff-input text-sm flex-1"
+            placeholder="Add issue type…"
+            value={newType}
+            onChange={e => setNewType(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && newType.trim()) {
+                dispatch({ type: 'WORKFLOW_CONFIG_SET', updates: { issueTypes: [...cfg.issueTypes, newType.trim()] } })
+                setNewType('')
+              }
+            }}
+          />
+          <Btn size="sm" variant="primary" onClick={() => {
+            if (newType.trim()) {
+              dispatch({ type: 'WORKFLOW_CONFIG_SET', updates: { issueTypes: [...cfg.issueTypes, newType.trim()] } })
+              setNewType('')
+            }
+          }}>
             <Plus size={13} />Add
           </Btn>
         </div>
@@ -433,7 +617,10 @@ export default function AllIssuesPage() {
   const issues              = useAllIssues()
   const [tab, setTab]       = useState('backlog')
   const [showCreate, setShowCreate] = useState(false)
-  const [createForm, setCreateForm] = useState({ title: '', status: 'not_started', priority: 'p2', issueType: 'feature', owner: '', dueDate: '', okrId: '', krId: '' })
+  const [createForm, setCreateForm] = useState({
+    title: '', status: 'not_started', priority: 'p2', issueType: 'feature',
+    owner: '', dueDate: '', okrId: '', krId: '',
+  })
 
   const TABS = [
     { id: 'backlog',   label: 'Backlog',   icon: List       },
@@ -453,7 +640,10 @@ export default function AllIssuesPage() {
   const createIssue = () => {
     if (!createForm.title.trim() || !createForm.okrId) return
     dispatch({ type: INITIATIVE_CREATE, ...createForm })
-    setCreateForm({ title: '', status: 'not_started', priority: 'p2', issueType: 'feature', owner: '', dueDate: '', okrId: '', krId: '' })
+    setCreateForm({
+      title: '', status: 'not_started', priority: 'p2', issueType: 'feature',
+      owner: '', dueDate: '', okrId: '', krId: '',
+    })
     setShowCreate(false)
   }
 
@@ -465,7 +655,7 @@ export default function AllIssuesPage() {
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-2xl font-bold text-ink">All Issues</h1>
-          <p className="text-ink-muted text-sm mt-0.5">Jira-like work management across all objectives and initiatives</p>
+          <p className="text-ink-muted text-sm mt-0.5">Work management across all objectives and initiatives</p>
         </div>
         <Btn variant="primary" size="sm" onClick={() => setShowCreate(!showCreate)}>
           <Plus size={14} />New Issue
@@ -479,7 +669,13 @@ export default function AllIssuesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
             <div className="md:col-span-2">
               <label className="ff-label">Issue Title *</label>
-              <input className="ff-input text-sm" placeholder="Describe the issue or feature…" value={createForm.title} onChange={e => setCreateForm(f => ({ ...f, title: e.target.value }))} autoFocus />
+              <input
+                className="ff-input text-sm"
+                placeholder="Describe the issue or feature…"
+                value={createForm.title}
+                onChange={e => setCreateForm(f => ({ ...f, title: e.target.value }))}
+                autoFocus
+              />
             </div>
             <div>
               <label className="ff-label">Type</label>
@@ -545,9 +741,10 @@ export default function AllIssuesPage() {
       </div>
 
       {/* Stats strip */}
-      <div className="flex gap-4 mb-5">
+      <div className="flex gap-4 mb-5 flex-wrap">
         {Object.entries(STATUS_CFG).map(([status, cfg]) => {
           const count = issues.filter(i => i.status === status).length
+          if (count === 0) return null
           return (
             <div key={status} className="flex items-center gap-1.5 text-xs text-ink-muted">
               <span className={`w-2 h-2 rounded-full ${cfg.dot}`} />
