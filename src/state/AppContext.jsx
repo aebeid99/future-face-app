@@ -11,7 +11,6 @@ export function AppProvider({ children }) {
       const saved = localStorage.getItem('ff_state')
       if (saved) {
         const parsed = JSON.parse(saved)
-        // Only restore certain parts (not UI state like page/step)
         // Deep-merge org.subs to prevent nested object reset bugs
         const restoredOrg = { ...init.org, ...parsed.org }
         if (parsed.org?.subs) {
@@ -19,11 +18,14 @@ export function AppProvider({ children }) {
         }
         return {
           ...init,
-          lang: parsed.lang || init.lang,
-          user: parsed.user || init.user,
-          org: restoredOrg,
-          okrs: parsed.okrs || init.okrs,
-          members: parsed.members || init.members,
+          lang:           parsed.lang           || init.lang,
+          user:           parsed.user           || init.user,
+          org:            restoredOrg,
+          okrs:           parsed.okrs           || init.okrs,
+          members:        parsed.members        || init.members,
+          auditLog:       parsed.auditLog       || init.auditLog,
+          northStar:      parsed.northStar      || init.northStar,
+          workflowConfig: parsed.workflowConfig || init.workflowConfig,
           // Restore page only if user is logged in
           page: parsed.user ? (parsed.page || 'dashboard') : 'landing',
         }
@@ -36,15 +38,19 @@ export function AppProvider({ children }) {
   useEffect(() => {
     try {
       localStorage.setItem('ff_state', JSON.stringify({
-        lang: state.lang,
-        user: state.user,
-        org: state.org,
-        okrs: state.okrs,
-        members: state.members,
-        page: state.page,
+        lang:           state.lang,
+        user:           state.user,
+        org:            state.org,
+        okrs:           state.okrs,
+        members:        state.members,
+        auditLog:       (state.auditLog || []).slice(0, 200), // persist latest 200
+        northStar:      state.northStar,
+        workflowConfig: state.workflowConfig,
+        page:           state.page,
       }))
     } catch {}
-  }, [state.lang, state.user, state.org, state.okrs, state.members, state.page])
+  }, [state.lang, state.user, state.org, state.okrs, state.members,
+      state.auditLog, state.northStar, state.workflowConfig, state.page])
 
   // Apply RTL direction
   useEffect(() => {

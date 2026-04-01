@@ -2,6 +2,21 @@ import * as A from './actions.js'
 import { progressStatus } from '../utils/formatting.js'
 import { calcKrProgress } from '../utils/krMetrics.js'
 
+// ── Audit log helpers ───────────────────────────────────────────
+function al(state, action, target, module = 'impactor') {
+  return {
+    id:     `al_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    user:   state.user?.name || 'System',
+    action,
+    target,
+    module,
+    time:   new Date().toISOString(),
+  }
+}
+function withAudit(state, entry) {
+  return { ...state, auditLog: [entry, ...(state.auditLog || [])].slice(0, 500) }
+}
+
 // ── Derive OKR progress + status from its key results ──────────
 // Uses calcKrProgress() which handles Boolean / Numeric / Milestone types
 function recalcOkr(okr, krs) {
@@ -154,139 +169,140 @@ export function reducer(state, action) {
         vision2030: action.vision2030 || null,
         createdAt: new Date().toISOString(),
       }
-      return {
-        ...state,
-        okrs: [...state.okrs, newOKR],
-      }
+      return withAudit(
+        { ...state, okrs: [...state.okrs, newOKR] },
+        al(state, 'Created Objective', action.title, 'impactor')
+      )
     }
 
     case A.OKR_UPDATE: {
-      return {
-        ...state,
-        okrs: state.okrs.map(o =>
-          o.id === action.id ? { ...o, ...action.updates } : o
-        ),
-      }
+      const target = state.okrs.find(o => o.id === action.id)?.title || action.id
+      return withAudit(
+        { ...state, okrs: state.okrs.map(o => o.id === action.id ? { ...o, ...action.updates } : o) },
+        al(state, 'Updated Objective', target, 'impactor')
+      )
     }
 
     case A.OKR_DELETE: {
-      return {
-        ...state,
-        okrs: state.okrs.filter(o => o.id !== action.id),
-      }
+      const target = state.okrs.find(o => o.id === action.id)?.title || action.id
+      return withAudit(
+        { ...state, okrs: state.okrs.filter(o => o.id !== action.id) },
+        al(state, 'Deleted Objective', target, 'impactor')
+      )
     }
 
     case A.KR_CREATE: {
-      return {
-        ...state,
-        okrs: state.okrs.map(o => {
-          if (o.id !== action.okrId) return o
-          const newKr = {
-            id: `kr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-            title:    action.title,
-            type:     action.krType   || action.type || 'numeric',
-            // Numeric
-            baseline: action.baseline ?? 0,
-            current:  Number(action.current) || 0,
-            target:   Number(action.target)  || 100,
-            unit:     action.unit     || '%',
-            // Boolean
-            done:     action.done     ?? false,
-            // Milestone
-            startDate:        action.startDate        || '',
-            dueDate:          action.dueDate          || '',
-            progressOverride: action.progressOverride ?? undefined,
-            // Meta
-            tags:   action.tags   || [],
-            status: 'on_track',
-          }
-          return recalcOkr(o, [...(o.keyResults || []), newKr])
-        }),
+      const okrTitle = state.okrs.find(o => o.id === action.okrId)?.title || ''
+      const newKr = {
+        id: `kr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        title:    action.title,
+        type:     action.krType   || action.type || 'numeric',
+        baseline: action.baseline ?? 0,
+        current:  Number(action.current) || 0,
+        target:   Number(action.target)  || 100,
+        unit:     action.unit     || '%',
+        done:     action.done     ?? false,
+        startDate:        action.startDate        || '',
+        dueDate:          action.dueDate          || '',
+        progressOverride: action.progressOverride ?? undefined,
+        tags:   action.tags   || [],
+        status: 'on_track',
       }
+      const nextState = {
+        ...state,
+        okrs: state.okrs.map(o => o.id !== action.okrId ? o : recalcOkr(o, [...(o.keyResults || []), newKr])),
+      }
+      return withAudit(nextState, al(state, 'Created Key Result', `${action.title} → ${okrTitle}`, 'impactor'))
     }
 
     case A.KR_UPDATE: {
-      return {
+      const kr = state.okrs.find(o => o.id === action.okrId)?.keyResults?.find(k => k.id === action.krId)
+      const nextState = {
         ...state,
         okrs: state.okrs.map(o => {
           if (o.id !== action.okrId) return o
-          const krs = (o.keyResults || []).map(kr =>
-            kr.id === action.krId ? { ...kr, ...action.updates } : kr
-          )
-          return recalcOkr(o, krs)
+          return recalcOkr(o, (o.keyResults || []).map(k => k.id === action.krId ? { ...k, ...action.updates } : k))
         }),
       }
+      return withAudit(nextState, al(state, 'Updated Key Result', kr?.title || action.krId, 'impactor'))
     }
 
     case A.KR_DELETE: {
-      return {
+      const kr = state.okrs.find(o => o.id === action.okrId)?.keyResults?.find(k => k.id === action.krId)
+      const nextState = {
         ...state,
-        okrs: state.okrs.map(o => {
-          if (o.id !== action.okrId) return o
-          return recalcOkr(o, (o.keyResults || []).filter(kr => kr.id !== action.krId))
-        }),
+        okrs: state.okrs.map(o => o.id !== action.okrId ? o : recalcOkr(o, (o.keyResults || []).filter(k => k.id !== action.krId))),
       }
+      return withAudit(nextState, al(state, 'Deleted Key Result', kr?.title || action.krId, 'impactor'))
     }
 
     // ─── Initiatives ──────────────────────────────────────────
     case A.INITIATIVE_CREATE: {
-      return {
-        ...state,
-        okrs: state.okrs.map(o => {
-          if (o.id !== action.okrId) return o
-          const item = {
-            id: `ini_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-            title:     action.title,
-            owner:     action.owner     || '',
-            startDate: action.startDate || '',
-            dueDate:   action.dueDate   || '',
-            budget:    action.budget    || 0,
-            status:    'not_started',
-            krId:      action.krId      || null,
-            priority:  action.priority  || 'p2',
-            comments:  [],
-            auditLog:  [],
-          }
-          return { ...o, initiatives: [...(o.initiatives || []), item] }
-        }),
+      const okrTitle = state.okrs.find(o => o.id === action.okrId)?.title || ''
+      const item = {
+        id: `ini_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        title:     action.title,
+        owner:     action.owner     || '',
+        startDate: action.startDate || '',
+        dueDate:   action.dueDate   || '',
+        budget:    action.budget    || 0,
+        status:    action.status    || 'not_started',
+        krId:      action.krId      || null,
+        priority:  action.priority  || 'p2',
+        issueType: action.issueType || 'feature',
+        description: action.description || '',
+        comments:  [],
+        auditLog:  [],
       }
+      const nextState = {
+        ...state,
+        okrs: state.okrs.map(o => o.id !== action.okrId ? o : { ...o, initiatives: [...(o.initiatives || []), item] }),
+      }
+      return withAudit(nextState, al(state, 'Created Initiative', `${action.title} → ${okrTitle}`, 'issues'))
     }
 
     case A.INITIATIVE_UPDATE: {
-      return {
+      const ini = state.okrs.find(o => o.id === action.okrId)?.initiatives?.find(i => i.id === action.initiativeId)
+      const changed = Object.keys(action.updates).filter(k => k !== '_lastComment')
+      const actionLabel = action.updates.status ? `Changed status to "${action.updates.status}"` : `Updated ${changed.join(', ')}`
+      const nextState = {
         ...state,
         okrs: state.okrs.map(o => {
           if (o.id !== action.okrId) return o
           return {
             ...o,
-            initiatives: (o.initiatives || []).map(ini =>
-              ini.id === action.initiativeId ? { ...ini, ...action.updates } : ini
+            initiatives: (o.initiatives || []).map(i =>
+              i.id === action.initiativeId ? { ...i, ...action.updates } : i
             ),
           }
         }),
       }
+      return withAudit(nextState, al(state, actionLabel, ini?.title || action.initiativeId, 'issues'))
     }
 
     case A.INITIATIVE_DELETE: {
-      return {
+      const ini = state.okrs.find(o => o.id === action.okrId)?.initiatives?.find(i => i.id === action.initiativeId)
+      const nextState = {
         ...state,
         okrs: state.okrs.map(o => {
           if (o.id !== action.okrId) return o
-          return { ...o, initiatives: (o.initiatives || []).filter(ini => ini.id !== action.initiativeId) }
+          return { ...o, initiatives: (o.initiatives || []).filter(i => i.id !== action.initiativeId) }
         }),
       }
+      return withAudit(nextState, al(state, 'Deleted Initiative', ini?.title || action.initiativeId, 'issues'))
     }
 
     // ─── Check-ins ────────────────────────────────────────────
     case A.CHECKIN_ADD: {
-      return {
+      const okrTitle = state.okrs.find(o => o.id === action.okrId)?.title || ''
+      const nextState = {
         ...state,
         okrs: state.okrs.map(o => {
           if (o.id !== action.okrId) return o
           const checkin = {
             id: `ci_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
             date:             new Date().toISOString(),
-            author:           action.author || 'You',
+            author:           action.author || state.user?.name || 'You',
             note:             action.note,
             progressSnapshot: o.progress,
             status:           action.status || 'on_track',
@@ -294,6 +310,7 @@ export function reducer(state, action) {
           return { ...o, checkins: [checkin, ...(o.checkins || [])] }
         }),
       }
+      return withAudit(nextState, al(state, `Check-in (${action.status || 'on_track'})`, okrTitle, 'impactor'))
     }
 
     case A.CHECKIN_DELETE: {
@@ -354,22 +371,27 @@ export function reducer(state, action) {
         attendance: 100,
         checkins:   [],
       }
-      return { ...state, members: [...state.members, member] }
+      return withAudit(
+        { ...state, members: [...state.members, member] },
+        al(state, 'Added Team Member', member.name, 'robox')
+      )
     }
 
-    case A.MEMBER_UPDATE:
-      return {
-        ...state,
-        members: state.members.map(m =>
-          m.id === action.id ? { ...m, ...action.updates } : m
-        ),
-      }
+    case A.MEMBER_UPDATE: {
+      const m = state.members.find(m => m.id === action.id)
+      return withAudit(
+        { ...state, members: state.members.map(m => m.id === action.id ? { ...m, ...action.updates } : m) },
+        al(state, 'Updated Team Member', m?.name || action.id, 'robox')
+      )
+    }
 
-    case A.MEMBER_DELETE:
-      return {
-        ...state,
-        members: state.members.filter(m => m.id !== action.id),
-      }
+    case A.MEMBER_DELETE: {
+      const m = state.members.find(m => m.id === action.id)
+      return withAudit(
+        { ...state, members: state.members.filter(m => m.id !== action.id) },
+        al(state, 'Removed Team Member', m?.name || action.id, 'robox')
+      )
+    }
 
     case A.CHECKIN_LOG: {
       // Log a daily attendance check-in for a member
@@ -571,4 +593,15 @@ export const INIT_STATE = {
     { id: 'm_seed_5', name: 'Khalid Al-Harbi',  role: 'Sales Lead',              dept: 'Sales',     email: 'khalid@futureface.io', phone: '+966 50 567 8901', managerId: 'm_seed_1', startDate: '2023-08-01', status: 'late',       attendance: 79, checkins: [] },
   ],
   chatHistory: [],
+
+  auditLog: [
+    { id:'al_seed_1', user:'Ahmed Al-Rashidi', action:'Check-in (on_track)',     target:'Grow enterprise customer base in KSA',    module:'impactor', time:'2026-04-14T09:00:00.000Z' },
+    { id:'al_seed_2', user:'Ahmed Al-Rashidi', action:'Updated Key Result',      target:'Achieve SAR 2.4M in new ARR',             module:'impactor', time:'2026-04-13T14:22:00.000Z' },
+    { id:'al_seed_3', user:'Nora Al-Ghamdi',   action:'Generated AI Briefing',   target:'Sunday Briefing',                         module:'ai_pilot', time:'2026-04-13T19:00:00.000Z' },
+    { id:'al_seed_4', user:'Sara Mahmoud',      action:'Check-in (at_risk)',      target:'Deliver world-class product experience',  module:'impactor', time:'2026-04-13T10:00:00.000Z' },
+    { id:'al_seed_5', user:'Ahmed Al-Rashidi', action:'Changed status to "blocked"', target:'Run quarterly NPS survey',            module:'issues',   time:'2026-04-12T15:30:00.000Z' },
+    { id:'al_seed_6', user:'Ali Hassan',        action:'Added Team Member',      target:'Yusuf Ibrahim',                           module:'robox',    time:'2026-04-10T11:00:00.000Z' },
+    { id:'al_seed_7', user:'Ahmed Al-Rashidi', action:'Created Objective',       target:'Build a high-performance sales team',     module:'impactor', time:'2026-04-01T08:00:00.000Z' },
+    { id:'al_seed_8', user:'Sara Mahmoud',      action:'Created Initiative',     target:'Redesign onboarding flow',               module:'issues',   time:'2026-04-05T09:30:00.000Z' },
+  ],
 }
