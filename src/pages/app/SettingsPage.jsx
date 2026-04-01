@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   Building2, Globe, Bell, Shield, Palette, Download, Trash2,
-  Key, ChevronRight, Moon, Sun, Check, AlertTriangle
+  Key, ChevronRight, Moon, Sun, Check, AlertTriangle, Eye, Monitor
 } from 'lucide-react'
 import Card, { CardHeader } from '../../components/ui/Card.jsx'
 import Btn from '../../components/ui/Btn.jsx'
@@ -9,7 +9,7 @@ import Input from '../../components/ui/Input.jsx'
 import Select from '../../components/ui/Select.jsx'
 import Badge from '../../components/ui/Badge.jsx'
 import { useApp } from '../../state/AppContext.jsx'
-import { ORG_UPDATE, STATUS_CONFIG, LANG, LOGOUT } from '../../state/actions.js'
+import { ORG_UPDATE, STATUS_CONFIG, LANG, LOGOUT, THEME, SET_FONT_SIZE, ORG_PERM_SET } from '../../state/actions.js'
 import { t } from '../../utils/i18n.js'
 
 // ─── Toggle switch ─────────────────────────────────────────────
@@ -217,6 +217,62 @@ export default function SettingsPage() {
         </div>
       </Section>
 
+      {/* ── Appearance & Accessibility */}
+      <Section title={ar ? 'المظهر والوصول' : 'Appearance & Accessibility'} icon={Palette}>
+        <div>
+          <p className="ff-label mb-2">{ar ? 'المظهر' : 'Theme'}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[
+              { id: 'light',    label: ar ? 'فاتح'   : 'Light',        icon: Sun,    preview: 'bg-white border-gray-200'     },
+              { id: 'dark',     label: ar ? 'داكن'   : 'Dark',         icon: Moon,   preview: 'bg-[#0A0D18] border-[#1E2540]' },
+              { id: 'eyestrain',label: ar ? 'مريح للعين' : 'Eye Comfort', icon: Eye, preview: 'bg-[#2D2A24] border-[#5A5040]' },
+              { id: 'system',   label: ar ? 'تلقائي' : 'System',       icon: Monitor, preview: 'bg-gradient-to-br from-white to-[#0A0D18]' },
+            ].map(t => {
+              const Icon = t.icon
+              return (
+                <button key={t.id} onClick={() => dispatch({ type: THEME, theme: t.id })}
+                  className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${
+                    (state.theme || 'light') === t.id
+                      ? 'border-gold/60 bg-gold/10 text-gold'
+                      : 'border-border bg-dark-100 text-ink-muted hover:border-border-light hover:text-ink'
+                  }`}>
+                  {/* Mini preview swatch */}
+                  <div className={`w-full h-8 rounded-lg border ${t.preview}`} />
+                  <Icon size={13} />
+                  <span className="text-[10px] font-medium">{t.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+        <div>
+          <p className="ff-label mb-2">{ar ? 'حجم النص' : 'Text Size'}</p>
+          <div className="flex items-center gap-2">
+            {[
+              { id: 'sm', label: 'A',  title: ar ? 'صغير' : 'Small'  },
+              { id: 'md', label: 'A',  title: ar ? 'متوسط' : 'Medium', default: true },
+              { id: 'lg', label: 'A',  title: ar ? 'كبير' : 'Large'  },
+              { id: 'xl', label: 'A',  title: ar ? 'أكبر' : 'X-Large' },
+            ].map((s, idx) => (
+              <button key={s.id} onClick={() => dispatch({ type: SET_FONT_SIZE, size: s.id })}
+                className={`flex flex-col items-center gap-0.5 px-4 py-2 rounded-xl border transition-all ${
+                  (state.fontSize || 'md') === s.id
+                    ? 'border-gold/60 bg-gold/10 text-gold'
+                    : 'border-border bg-dark-100 text-ink-muted hover:border-border-light hover:text-ink'
+                }`}>
+                <span style={{ fontSize: [13, 16, 20, 24][idx] }}>{s.label}</span>
+                <span className="text-[9px]">{s.title}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="text-xs text-ink-faint">
+          {ar
+            ? 'سيتم تطبيق تغييرات المظهر فوراً على جميع الصفحات.'
+            : 'Appearance changes apply instantly across all pages.'}
+        </p>
+      </Section>
+
       {/* ── Notifications */}
       <Section title={ar ? 'الإشعارات' : 'Notifications'} icon={Bell}>
         <Toggle
@@ -340,6 +396,45 @@ export default function SettingsPage() {
               </Btn>
             </div>
           </div>
+        </div>
+      </Card>
+
+      {/* ── Access & Permissions */}
+      <Card>
+        <CardHeader
+          title={ar ? 'الصلاحيات' : 'Access & Permissions'}
+          subtitle={ar ? 'تحكم في صلاحيات التعديل لأعضاء المؤسسة' : 'Control edit access for organisation members'}
+          icon={Shield}
+        />
+        <div className="space-y-4">
+          <Toggle
+            checked={state.org?.permissions?.canEdit !== false}
+            onChange={(val) => dispatch({ type: ORG_PERM_SET, permissions: { canEdit: val } })}
+            label={ar ? 'السماح بالتعديل لجميع المستخدمين' : 'Allow all members to edit'}
+            sublabel={ar
+              ? 'عند التعطيل، يرى المستخدمون المحتوى بوضع القراءة فقط'
+              : 'When disabled, members see content in read-only mode'}
+          />
+          <Toggle
+            checked={state.org?.permissions?.canCreateTickets !== false}
+            onChange={(val) => dispatch({ type: ORG_PERM_SET, permissions: { canCreateTickets: val } })}
+            label={ar ? 'السماح بإنشاء تذاكر جديدة' : 'Allow creating new tickets'}
+            sublabel={ar ? 'تحكم في من يمكنه إضافة مشكلات ومبادرات جديدة' : 'Control who can add new issues and initiatives'}
+          />
+          <Toggle
+            checked={state.org?.permissions?.canDelete !== false}
+            onChange={(val) => dispatch({ type: ORG_PERM_SET, permissions: { canDelete: val } })}
+            label={ar ? 'السماح بحذف العناصر' : 'Allow deleting items'}
+            sublabel={ar ? 'تحكم في قدرة المستخدمين على حذف الأهداف والمبادرات' : 'Control ability to delete OKRs and initiatives'}
+          />
+          {state.org?.permissions?.canEdit === false && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs">
+              <AlertTriangle size={12} className="flex-shrink-0" />
+              {ar
+                ? 'التعديل معطّل حالياً — المستخدمون في وضع القراءة فقط'
+                : 'Editing is currently disabled — users are in view-only mode'}
+            </div>
+          )}
         </div>
       </Card>
 

@@ -4,7 +4,7 @@ import {
   Send, Bot, X, Check, TrendingUp, CheckSquare, MessageSquare,
   Archive, RotateCcw, Flag, Calendar, Circle, CheckCircle2,
   AlertCircle, MinusCircle, Clock, Pencil, Zap, Share2,
-  MoreHorizontal, DollarSign, Link2, ChevronUp, GripVertical,
+  MoreHorizontal, DollarSign, Link2, ChevronUp, GripVertical, ExternalLink,
 } from 'lucide-react'
 import Card from '../../components/ui/Card.jsx'
 import Btn from '../../components/ui/Btn.jsx'
@@ -25,6 +25,7 @@ import {
   CHAT_ADD, CHAT_UPDATE_LAST,
   HIGHLIGHT,
   OKR_REORDER, KR_MOVE, INITIATIVE_MOVE,
+  OPEN_TICKET,
 } from '../../state/actions.js'
 import { t } from '../../utils/i18n.js'
 import { currentQuarter, quarterList, formatRelative } from '../../utils/formatting.js'
@@ -655,6 +656,15 @@ function InitiativeRow({ ini, okr, onSelect }) {
           <Calendar size={9} />{dateRange}
         </span>
       )}
+
+      {/* Open as ticket */}
+      <button
+        onClick={e => { e.stopPropagation(); dispatch({ type: OPEN_TICKET, id: ini.id }) }}
+        className="opacity-0 group-hover:opacity-100 p-1 text-ink-faint hover:text-gold rounded transition-opacity"
+        title="Open as ticket"
+      >
+        <ExternalLink size={11} />
+      </button>
 
       {/* Delete */}
       <button onClick={e => { e.stopPropagation(); dispatch({ type: INITIATIVE_DELETE, okrId: okr.id, initiativeId: ini.id }) }}

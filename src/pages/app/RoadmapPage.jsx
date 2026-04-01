@@ -20,7 +20,7 @@ import { useApp } from '../../state/AppContext.jsx'
 import {
   OKR_CREATE, OKR_UPDATE, OKR_DELETE,
   INITIATIVE_UPDATE, INITIATIVE_DELETE,
-  KR_UPDATE, OKR_REORDER, INITIATIVE_MOVE,
+  KR_UPDATE, OKR_REORDER, INITIATIVE_MOVE, KR_MOVE, OPEN_TICKET,
 } from '../../state/actions.js'
 import { t } from '../../utils/i18n.js'
 import { quarterList, currentQuarter } from '../../utils/formatting.js'
@@ -414,6 +414,7 @@ function LeftTree({
     if (!dragRow || !target || dragRow.key === target.key) return false
     if (dragRow.type === 'okr') return target.type === 'okr'
     if (dragRow.type === 'ini') return target.type === 'ini' || target.type === 'okr'
+    if (dragRow.type === 'kr') return target.type === 'kr' && target.okrId === dragRow.okrId
     return false
   }
 
@@ -437,6 +438,15 @@ function LeftTree({
       const toOkrId = targetRow.type === 'okr' ? targetRow.okrId : targetRow.okrId
       if (dragRow.okrId !== toOkrId || dragRow.id !== targetRow.id)
         dispatch({ type: INITIATIVE_MOVE, iniId: dragRow.id, fromOkrId: dragRow.okrId, toOkrId, toKrId: null })
+    } else if (dragRow.type === 'kr') {
+      const okr = allOkrs.find(o => o.id === dragRow.okrId)
+      if (!okr) return
+      const krs = okr.keyResults || []
+      const fromIndex = krs.findIndex(k => k.id === dragRow.id)
+      const toIndex   = krs.findIndex(k => k.id === targetRow.id)
+      if (fromIndex !== -1 && toIndex !== -1 && fromIndex !== toIndex) {
+        dispatch({ type: KR_MOVE, krId: dragRow.id, fromOkrId: dragRow.okrId, toOkrId: dragRow.okrId, toIndex })
+      }
     }
     setDragKey(null); setOverKey(null)
   }
@@ -546,10 +556,22 @@ function LeftTree({
         // ── KR row ───────────────────────────────────────────────────────────
         if (row.type === 'kr') {
           const prog = row.kr?.progress ?? Math.round(((row.kr?.current ?? 0) - (row.kr?.baseline ?? 0)) / Math.max(1, (row.kr?.target ?? 1) - (row.kr?.baseline ?? 0)) * 100)
+          const isDropTarget = overKey === row.key && canDrop(row)
           return (
             <div key={row.key}>
+              {isDropTarget && overPos === 'before' && <DropLine />}
               <div
-                className="flex items-center gap-2 pl-5 pr-3 py-2 border-b border-border/40 hover:bg-dark/15 cursor-pointer group transition-colors select-none"
+                draggable
+                onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.stopPropagation(); setDragKey(row.key) }}
+                onDragOver={e => handleDragOver(e, row)}
+                onDragLeave={() => setOverKey(null)}
+                onDrop={e => handleDrop(e, row)}
+                onDragEnd={() => { setDragKey(null); setOverKey(null) }}
+                className={[
+                  'flex items-center gap-2 pl-5 pr-3 py-2 border-b border-border/40 hover:bg-dark/15 group transition-colors select-none',
+                  dragKey === row.key ? 'opacity-40' : '',
+                  isDropTarget ? 'bg-blue-500/5' : '',
+                ].join(' ')}
                 onClick={() => toggleKr(row.id)}>
                 <button className="text-ink-faint shrink-0">
                   {expandedKrs[row.id] ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
@@ -578,6 +600,7 @@ function LeftTree({
                   </button>
                 </div>
               </div>
+              {isDropTarget && overPos === 'after' && <DropLine />}
             </div>
           )
         }
@@ -618,7 +641,7 @@ function LeftTree({
                 <button onClick={cycleStatus} className="shrink-0">
                   <Icon size={11} className={`${cfg.color} transition-colors`} />
                 </button>
-                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onOpenIssue(row.ini, 'initiative')}>
+                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => dispatch({ type: OPEN_TICKET, id: row.id })}>
                   <p className={`text-[11px] truncate ${row.status === 'done' ? 'line-through text-ink-faint' : 'text-ink hover:text-gold transition-colors'}`}>
                     {row.label}
                   </p>

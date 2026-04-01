@@ -4,20 +4,22 @@ import {
   Filter, Search, ChevronDown, Circle,
   CheckCircle2, AlertCircle, Clock, Zap, Bug, Star, BookOpen,
   MoreHorizontal, Tag, User2, Calendar, ArrowUpRight, X, Save,
-  ChevronRight, Trash2, Edit2, ArrowUpDown, AlertTriangle,
+  ChevronRight, Trash2, Edit2, ArrowUpDown, AlertTriangle, Users, ExternalLink,
 } from 'lucide-react'
 import { useApp } from '@/state/AppContext'
-import { INITIATIVE_UPDATE, INITIATIVE_CREATE, INITIATIVE_DELETE, OKR_UPDATE } from '@/state/actions'
+import { INITIATIVE_UPDATE, INITIATIVE_CREATE, INITIATIVE_DELETE, OKR_UPDATE, OPEN_TICKET } from '@/state/actions'
 import Badge from '@/components/ui/Badge'
 import Avatar from '@/components/ui/Avatar'
 import Btn from '@/components/ui/Btn'
 
 // ── Issue types ─────────────────────────────────────────────────────────────
 const ISSUE_TYPES = {
-  feature:  { label: 'Feature',  icon: Star,       color: 'text-blue-400',   bg: 'bg-blue-500/10'   },
-  bug:      { label: 'Bug',      icon: Bug,        color: 'text-red-400',    bg: 'bg-red-500/10'    },
-  task:     { label: 'Task',     icon: CheckCircle2, color: 'text-green-400', bg: 'bg-green-500/10'  },
-  epic:     { label: 'Epic',     icon: BookOpen,   color: 'text-purple-400', bg: 'bg-purple-500/10' },
+  feature:     { label: 'Feature',     icon: Star,       color: 'text-blue-400',   bg: 'bg-blue-500/10'   },
+  bug:         { label: 'Bug',         icon: Bug,        color: 'text-red-400',    bg: 'bg-red-500/10'    },
+  task:        { label: 'Task',        icon: CheckCircle2, color: 'text-green-400', bg: 'bg-green-500/10'  },
+  epic:        { label: 'Epic',        icon: BookOpen,   color: 'text-purple-400', bg: 'bg-purple-500/10' },
+  user_story:  { label: 'User Story',  icon: Users,      color: 'text-pink-400',   bg: 'bg-pink-500/10'   },
+  enhancement: { label: 'Enhancement', icon: Zap,        color: 'text-amber-400',  bg: 'bg-amber-500/10'  },
 }
 
 // ── Status config ───────────────────────────────────────────────────────────
@@ -140,7 +142,7 @@ function applySortOverride(issues, sortBy) {
 }
 
 // ── Issue row (backlog) ──────────────────────────────────────────────────────
-function IssueRow({ issue, okrs, onUpdate, onDelete }) {
+function IssueRow({ issue, okrs, onUpdate, onDelete, onOpen }) {
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState({
     title: issue.title,
@@ -158,7 +160,8 @@ function IssueRow({ issue, okrs, onUpdate, onDelete }) {
 
   return (
     <div
-      className={`group flex items-center gap-3 px-4 py-2.5 rounded-xl border hover:bg-surface transition-all ${
+      onClick={() => onOpen?.(issue.id)}
+      className={`group flex items-center gap-3 px-4 py-2.5 rounded-xl border hover:bg-surface transition-all cursor-pointer ${
         isBlocked
           ? 'border-red-500/20 bg-red-500/5'
           : 'border-transparent hover:border-border'
@@ -184,7 +187,16 @@ function IssueRow({ issue, okrs, onUpdate, onDelete }) {
           onKeyDown={e => e.key === 'Enter' && save()}
         />
       ) : (
-        <span className="flex-1 text-sm text-ink truncate">{issue.title}</span>
+        <div className="flex-1 flex items-center gap-1 min-w-0">
+          <span className="text-sm text-ink truncate">{issue.title}</span>
+          <button
+            onClick={e => { e.stopPropagation(); onOpen?.(issue.id) }}
+            className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 text-ink-faint hover:text-gold"
+            title="Open as ticket"
+          >
+            <ExternalLink size={11} />
+          </button>
+        </div>
       )}
 
       <StatusPill status={issue.status} />
@@ -201,13 +213,13 @@ function IssueRow({ issue, okrs, onUpdate, onDelete }) {
 
       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
-          onClick={() => setEditing(true)}
+          onClick={e => { e.stopPropagation(); setEditing(true) }}
           className="p-1 text-ink-faint hover:text-ink rounded"
         >
           <Edit2 size={11} />
         </button>
         <button
-          onClick={() => onDelete(issue.okrId, issue.id)}
+          onClick={e => { e.stopPropagation(); onDelete(issue.okrId, issue.id) }}
           className="p-1 text-ink-faint hover:text-red-400 rounded"
         >
           <Trash2 size={11} />
@@ -218,7 +230,7 @@ function IssueRow({ issue, okrs, onUpdate, onDelete }) {
 }
 
 // ── Backlog Tab ──────────────────────────────────────────────────────────────
-function BacklogTab({ issues, okrs, onUpdate, onDelete }) {
+function BacklogTab({ issues, okrs, onUpdate, onDelete, onOpen }) {
   const [search, setSearch]         = useState('')
   const [filterType, setFilterType] = useState('all')
   const [filterStatus, setFilterStatus] = useState('all')
@@ -314,6 +326,7 @@ function BacklogTab({ issues, okrs, onUpdate, onDelete }) {
             okrs={okrs}
             onUpdate={onUpdate}
             onDelete={onDelete}
+            onOpen={onOpen}
           />
         ))}
         {filtered.length === 0 && (
@@ -338,14 +351,15 @@ function BacklogTab({ issues, okrs, onUpdate, onDelete }) {
 }
 
 // ── Kanban Card ──────────────────────────────────────────────────────────────
-function KanbanCard({ issue, onUpdate, isDragOver, dragHandlers }) {
+function KanbanCard({ issue, onUpdate, onOpen, isDragOver, dragHandlers }) {
   const TypeIcon = ISSUE_TYPES[issue.issueType || 'feature']?.icon || Star
   const pCfg     = PRIORITY_CFG[issue.priority] || PRIORITY_CFG.p2
 
   return (
     <div
       {...(dragHandlers || {})}
-      className={`group bg-surface border rounded-xl p-3 cursor-grab active:cursor-grabbing transition-all ${isDragOver ? 'border-gold/60 bg-gold/5 scale-[1.02]' : 'border-border hover:border-border-hover'}`}
+      onClick={() => onOpen?.(issue.id)}
+      className={`group bg-surface border rounded-xl p-3 cursor-grab active:cursor-grabbing transition-all hover:border-gold/40 ${isDragOver ? 'border-gold/60 bg-gold/5 scale-[1.02]' : 'border-border hover:border-border-hover'}`}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-1.5">
@@ -355,7 +369,16 @@ function KanbanCard({ issue, onUpdate, isDragOver, dragHandlers }) {
           </span>
         </div>
       </div>
-      <p className="text-xs font-medium text-ink leading-snug mb-2">{issue.title}</p>
+      <div className="flex items-center gap-1 mb-2">
+        <p className="text-xs font-medium text-ink leading-snug flex-1">{issue.title}</p>
+        <button
+          onClick={e => { e.stopPropagation(); onOpen?.(issue.id) }}
+          className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 text-ink-faint hover:text-gold"
+          title="Open as ticket"
+        >
+          <ExternalLink size={10} />
+        </button>
+      </div>
       <div className="flex items-center justify-between">
         <span className="text-[10px] text-ink-faint truncate max-w-[110px]">
           {issue.krTitle || issue.okrTitle}
@@ -373,7 +396,7 @@ function KanbanCard({ issue, onUpdate, isDragOver, dragHandlers }) {
 }
 
 // ── Kanban Tab ───────────────────────────────────────────────────────────────
-function KanbanTab({ issues, onUpdate }) {
+function KanbanTab({ issues, onUpdate, onOpen }) {
   const [dragging, setDragging] = useState(null)
   const [overCol, setOverCol]   = useState(null)
 
@@ -414,6 +437,7 @@ function KanbanTab({ issues, onUpdate }) {
                   key={issue.id}
                   issue={issue}
                   onUpdate={onUpdate}
+                  onOpen={onOpen}
                   isDragOver={overCol === col.id && dragging?.id !== issue.id}
                   dragHandlers={{
                     draggable: true,
@@ -637,6 +661,10 @@ export default function AllIssuesPage() {
     dispatch({ type: INITIATIVE_DELETE, okrId, initiativeId: iniId })
   }
 
+  const handleOpen = (id) => {
+    dispatch({ type: OPEN_TICKET, id })
+  }
+
   const createIssue = () => {
     if (!createForm.title.trim() || !createForm.okrId) return
     dispatch({ type: INITIATIVE_CREATE, ...createForm })
@@ -756,8 +784,8 @@ export default function AllIssuesPage() {
       </div>
 
       {/* Tab content */}
-      {tab === 'backlog'  && <BacklogTab  issues={issues} okrs={state.okrs} onUpdate={onUpdate} onDelete={onDelete} />}
-      {tab === 'board'    && <KanbanTab   issues={issues} onUpdate={onUpdate} />}
+      {tab === 'backlog'  && <BacklogTab  issues={issues} okrs={state.okrs} onUpdate={onUpdate} onDelete={onDelete} onOpen={handleOpen} />}
+      {tab === 'board'    && <KanbanTab   issues={issues} onUpdate={onUpdate} onOpen={handleOpen} />}
       {tab === 'epics'    && <EpicsTab    issues={issues} />}
       {tab === 'workflow' && <WorkflowTab />}
     </div>

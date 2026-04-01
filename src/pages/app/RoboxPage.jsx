@@ -13,7 +13,7 @@ import EmptyState from '../../components/ui/EmptyState.jsx'
 import Modal from '../../components/ui/Modal.jsx'
 import Input from '../../components/ui/Input.jsx'
 import { useApp } from '../../state/AppContext.jsx'
-import { MEMBER_ADD, MEMBER_UPDATE, MEMBER_DELETE, CHECKIN_LOG } from '../../state/actions.js'
+import { MEMBER_ADD, MEMBER_UPDATE, MEMBER_DELETE, CHECKIN_LOG, ATTENDANCE_POLICY_SET } from '../../state/actions.js'
 import { t } from '../../utils/i18n.js'
 
 // ── Status config ─────────────────────────────────────────────────────────────
@@ -341,6 +341,89 @@ function OrgNode({ member, allMembers, depth = 0, onSelect }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// ATTENDANCE POLICY CARD
+// ══════════════════════════════════════════════════════════════════════════════
+function AttendancePolicyCard() {
+  const { state, dispatch } = useApp()
+  const ar = state.lang === 'ar'
+
+  // Collect unique job titles from members
+  const roles = useMemo(() => {
+    const s = new Set((state.members || []).map(m => m.role).filter(Boolean))
+    return [...s].sort()
+  }, [state.members])
+
+  const policy = state.org?.attendancePolicy || {}
+
+  const toggleRole = (role) => {
+    const current = policy[role] !== false
+    dispatch({ type: ATTENDANCE_POLICY_SET, policy: { [role]: !current } })
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title={ar ? 'سياسة الحضور' : 'Attendance Policy'}
+        subtitle={ar
+          ? 'حدد ما إذا كان الحضور إلزامياً حسب المسمى الوظيفي'
+          : 'Configure attendance requirements per job title'}
+      />
+      {roles.length === 0 ? (
+        <p className="py-6 text-center text-sm text-ink-muted">
+          {ar ? 'لا توجد مسميات وظيفية بعد — أضف أعضاءً أولاً' : 'No job titles yet — add team members first'}
+        </p>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-xs text-ink-muted mb-3">
+            {ar
+              ? 'القاعدة الافتراضية: الحضور إلزامي لجميع المسميات. قم بتعطيله للأدوار الاختيارية.'
+              : 'Default: attendance is mandatory for all roles. Disable for roles where it\'s optional.'}
+          </p>
+          {roles.map(role => {
+            const isMandatory = policy[role] !== false
+            const memberCount = (state.members || []).filter(m => m.role === role).length
+            return (
+              <div key={role} className="flex items-center justify-between gap-4 py-2 border-b border-surface-3 last:border-0">
+                <div>
+                  <p className="text-sm text-ink font-medium">{role}</p>
+                  <p className="text-xs text-ink-faint">
+                    {memberCount} {ar ? 'عضو' : memberCount === 1 ? 'member' : 'members'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={`text-xs font-medium ${isMandatory ? 'text-blue-400' : 'text-ink-muted'}`}>
+                    {isMandatory
+                      ? (ar ? 'إلزامي' : 'Mandatory')
+                      : (ar ? 'اختياري' : 'Optional')}
+                  </span>
+                  <button
+                    role="switch"
+                    aria-checked={isMandatory}
+                    onClick={() => toggleRole(role)}
+                    className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 focus:outline-none ${
+                      isMandatory ? 'bg-blue-500' : 'bg-surface-3'
+                    }`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                      isMandatory ? 'translate-x-5' : 'translate-x-0'
+                    }`} />
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+          <p className="text-[11px] text-ink-faint pt-1">
+            {ar
+              ? `${roles.filter(r => policy[r] !== false).length} من ${roles.length} مسمى إلزامي`
+              : `${roles.filter(r => policy[r] !== false).length} of ${roles.length} roles set to mandatory`}
+          </p>
+        </div>
+      )}
+    </Card>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ══════════════════════════════════════════════════════════════════════════════
 export default function RoboxPage() {
@@ -478,7 +561,23 @@ export default function RoboxPage() {
                           <Avatar name={m.name} size="sm" />
                           <div>
                             <p className="text-sm font-medium text-ink">{m.name}</p>
-                            <p className="text-xs text-ink-faint">{m.role}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <p className="text-xs text-ink-faint">{m.role}</p>
+                              {(() => {
+                                const policy = state.org?.attendancePolicy || {}
+                                const role = m.role || ''
+                                const isMandatory = policy[role] !== false
+                                return (
+                                  <span className={`inline-flex items-center gap-1 text-[9px] font-medium px-1.5 py-0.5 rounded ${
+                                    isMandatory
+                                      ? 'bg-blue-500/10 text-blue-400'
+                                      : 'bg-gray-500/10 text-gray-400'
+                                  }`}>
+                                    {isMandatory ? '● Mandatory' : '○ Optional'}
+                                  </span>
+                                )
+                              })()}
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -558,6 +657,9 @@ export default function RoboxPage() {
           ))}
         </div>
       )}
+
+      {/* ── Attendance Policy ── */}
+      {members.length > 0 && <AttendancePolicyCard />}
 
       {/* ── Modals + Drawer ── */}
       <MemberModal

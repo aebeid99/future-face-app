@@ -26,6 +26,9 @@ export function AppProvider({ children }) {
           auditLog:       parsed.auditLog       || init.auditLog,
           northStar:      parsed.northStar      || init.northStar,
           workflowConfig: parsed.workflowConfig || init.workflowConfig,
+          theme:          parsed.theme          || init.theme,
+          fontSize:       parsed.fontSize       || init.fontSize,
+          openTicketId:   null,  // never restore open drawer across sessions
           // Restore page only if user is logged in
           page: parsed.user ? (parsed.page || 'dashboard') : 'landing',
         }
@@ -43,14 +46,17 @@ export function AppProvider({ children }) {
         org:            state.org,
         okrs:           state.okrs,
         members:        state.members,
-        auditLog:       (state.auditLog || []).slice(0, 200), // persist latest 200
+        auditLog:       (state.auditLog || []).slice(0, 200),
         northStar:      state.northStar,
         workflowConfig: state.workflowConfig,
+        theme:          state.theme,
+        fontSize:       state.fontSize,
         page:           state.page,
       }))
     } catch {}
   }, [state.lang, state.user, state.org, state.okrs, state.members,
-      state.auditLog, state.northStar, state.workflowConfig, state.page])
+      state.auditLog, state.northStar, state.workflowConfig,
+      state.theme, state.fontSize, state.page])
 
   // Apply RTL direction
   useEffect(() => {

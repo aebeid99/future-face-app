@@ -5,18 +5,131 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Base ─── */
+/* ══════════════════════════════════════════════════════════════
+   THEME SYSTEM — CSS custom properties override Tailwind colors
+   Applied via data-theme attribute on <html> set by App.jsx
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Dark theme (default) ─── */
+:root,
+[data-theme="dark"] {
+  --th-bg:          #0A0D18;
+  --th-bg-50:       #1E2540;
+  --th-bg-100:      #181D32;
+  --th-bg-200:      #131829;
+  --th-surface:     #131829;
+  --th-surface-h:   #1A2035;
+  --th-border:      #1E2540;
+  --th-border-l:    #2A3355;
+  --th-ink:         #F0F2FF;
+  --th-ink-muted:   #8892A4;
+  --th-ink-faint:   #505974;
+  --th-scrollbar:   #1E2540;
+  --th-scrollbar-h: #2A3355;
+  color-scheme: dark;
+}
+
+/* ── Light theme ─── */
+[data-theme="light"] {
+  --th-bg:          #F4F6FB;
+  --th-bg-50:       #FFFFFF;
+  --th-bg-100:      #FFFFFF;
+  --th-bg-200:      #FAFBFD;
+  --th-surface:     #FFFFFF;
+  --th-surface-h:   #F0F3FA;
+  --th-border:      #DDE2EF;
+  --th-border-l:    #C9D0E3;
+  --th-ink:         #1A1F35;
+  --th-ink-muted:   #5A647A;
+  --th-ink-faint:   #8A95AA;
+  --th-scrollbar:   #DDE2EF;
+  --th-scrollbar-h: #C9D0E3;
+  color-scheme: light;
+}
+
+/* ── Eye-comfort (warm dark) ─── */
+[data-theme="eyestrain"] {
+  --th-bg:          #2D2A24;
+  --th-bg-50:       #3A3830;
+  --th-bg-100:      #34302A;
+  --th-bg-200:      #30292A;
+  --th-surface:     #3A362E;
+  --th-surface-h:   #46413A;
+  --th-border:      #5A5040;
+  --th-border-l:    #6A6050;
+  --th-ink:         #E8D5B8;
+  --th-ink-muted:   #B8A080;
+  --th-ink-faint:   #7A6850;
+  --th-scrollbar:   #5A5040;
+  --th-scrollbar-h: #6A6050;
+  color-scheme: dark;
+}
+
+/* ── Apply theme vars to structural elements ─── */
+body {
+  background-color: var(--th-bg, #0A0D18);
+  color: var(--th-ink, #F0F2FF);
+}
+
+/* Override Tailwind hardcoded background classes */
+[data-theme="light"] .bg-dark,
+[data-theme="eyestrain"] .bg-dark            { background-color: var(--th-bg) !important; }
+[data-theme="light"] .bg-dark-50,
+[data-theme="eyestrain"] .bg-dark-50         { background-color: var(--th-bg-50) !important; }
+[data-theme="light"] .bg-dark-100,
+[data-theme="eyestrain"] .bg-dark-100        { background-color: var(--th-bg-100) !important; }
+[data-theme="light"] .bg-dark-200,
+[data-theme="eyestrain"] .bg-dark-200        { background-color: var(--th-bg-200) !important; }
+[data-theme="light"] .bg-surface,
+[data-theme="eyestrain"] .bg-surface         { background-color: var(--th-surface) !important; }
+[data-theme="light"] .bg-surface-hover,
+[data-theme="eyestrain"] .bg-surface-hover   { background-color: var(--th-surface-h) !important; }
+[data-theme="light"] .border-border,
+[data-theme="eyestrain"] .border-border      { border-color: var(--th-border) !important; }
+[data-theme="light"] .border-border-light,
+[data-theme="eyestrain"] .border-border-light{ border-color: var(--th-border-l) !important; }
+[data-theme="light"] .text-ink,
+[data-theme="eyestrain"] .text-ink           { color: var(--th-ink) !important; }
+[data-theme="light"] .text-ink-muted,
+[data-theme="eyestrain"] .text-ink-muted     { color: var(--th-ink-muted) !important; }
+[data-theme="light"] .text-ink-faint,
+[data-theme="eyestrain"] .text-ink-faint     { color: var(--th-ink-faint) !important; }
+[data-theme="light"] .bg-surface-2,
+[data-theme="eyestrain"] .bg-surface-2       { background-color: var(--th-surface-h) !important; }
+[data-theme="light"] .bg-surface-3,
+[data-theme="eyestrain"] .bg-surface-3       { background-color: var(--th-border) !important; }
+[data-theme="light"] .border-surface-3,
+[data-theme="eyestrain"] .border-surface-3   { border-color: var(--th-border) !important; }
+[data-theme="light"] .hover\:bg-surface-2:hover,
+[data-theme="eyestrain"] .hover\:bg-surface-2:hover { background-color: var(--th-surface-h) !important; }
+[data-theme="light"] .hover\:bg-surface-3:hover,
+[data-theme="eyestrain"] .hover\:bg-surface-3:hover { background-color: var(--th-border) !important; }
+
+/* Light: card shadows are lighter */
+[data-theme="light"] {
+  --shadow-card:  0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-panel: 0 4px 24px rgba(0,0,0,0.12);
+}
+
+/* ─── Font Scale (root font-size → all rem values scale) ─── */
+[data-fontscale="sm"] { font-size: 14px; }
+[data-fontscale="md"] { font-size: 16px; }
+[data-fontscale="lg"] { font-size: 18px; }
+[data-fontscale="xl"] { font-size: 20px; }
+
+/* ══════════════════════════════════════════════════════════════
+   BASE
+   ══════════════════════════════════════════════════════════════ */
 *, *::before, *::after { box-sizing: border-box; }
 
 html {
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
+  font-size: 16px; /* default — overridden by data-fontscale */
 }
 
 body {
   margin: 0;
-  background-color: #0A0D18;
-  color: #F0F2FF;
   font-family: 'Inter', system-ui, sans-serif;
   line-height: 1.6;
 }
@@ -28,9 +141,9 @@ body {
 
 /* ─── Scrollbar ─── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #0A0D18; }
-::-webkit-scrollbar-thumb { background: #1E2540; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #2A3355; }
+::-webkit-scrollbar-track { background: var(--th-bg, #0A0D18); }
+::-webkit-scrollbar-thumb { background: var(--th-scrollbar, #1E2540); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--th-scrollbar-h, #2A3355); }
 
 /* ─── Focus Ring ─── */
 :focus-visible {
@@ -42,14 +155,28 @@ body {
 /* ─── Selection ─── */
 ::selection {
   background-color: rgba(212, 146, 14, 0.3);
-  color: #F0F2FF;
+  color: inherit;
 }
 
-/* ─── Animations ─── */
+/* ══════════════════════════════════════════════════════════════
+   ANIMATIONS
+   ══════════════════════════════════════════════════════════════ */
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
 }
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+@keyframes fadeIn  { from { opacity: 0 } to { opacity: 1 } }
+@keyframes slideIn { from { transform: translateX(-8px); opacity: 0 } to { transform: translateX(0); opacity: 1 } }
+@keyframes slideUp { from { transform: translateY(8px);  opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+@keyframes pulseGold { 0%,100% { opacity: 1 } 50% { opacity: 0.6 } }
+
+.animate-slide-in-right { animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
 
 .skeleton {
   background: linear-gradient(90deg, #131829 25%, #1E2540 50%, #131829 75%);
@@ -60,14 +187,11 @@ body {
 /* ─── Transitions ─── */
 .transition-all { transition: all 0.15s ease; }
 
-/* ─── Gradient Utilities ─── */
-.gradient-gold {
-  background: linear-gradient(135deg, #D4920E 0%, #F5A623 100%);
-}
-
-.gradient-dark {
-  background: linear-gradient(135deg, #0A0D18 0%, #131829 100%);
-}
+/* ══════════════════════════════════════════════════════════════
+   GRADIENT UTILITIES
+   ══════════════════════════════════════════════════════════════ */
+.gradient-gold  { background: linear-gradient(135deg, #D4920E 0%, #F5A623 100%); }
+.gradient-dark  { background: linear-gradient(135deg, var(--th-bg, #0A0D18) 0%, var(--th-bg-200, #131829) 100%); }
 
 .text-gradient-gold {
   background: linear-gradient(135deg, #D4920E, #F5A623);
@@ -76,7 +200,9 @@ body {
   background-clip: text;
 }
 
-/* ─── Custom Utilities ─── */
+/* ══════════════════════════════════════════════════════════════
+   CUSTOM UTILITIES
+   ══════════════════════════════════════════════════════════════ */
 .glass {
   background: rgba(19, 24, 41, 0.8);
   backdrop-filter: blur(12px);
@@ -84,43 +210,49 @@ body {
   border: 1px solid rgba(30, 37, 64, 0.8);
 }
 
+[data-theme="light"] .glass {
+  background: rgba(255,255,255,0.85);
+  border-color: rgba(221,226,239,0.9);
+}
+
 .card-hover {
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
-
 .card-hover:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4);
   border-color: #2A3355;
 }
 
-/* ─── Sidebar ─── */
+/* ═══════════════════════════════════════════════════════════════
+   SIDEBAR
+   ═══════════════════════════════════════════════════════════════ */
 .sidebar-item {
   @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-ink-muted transition-all cursor-pointer;
 }
+.sidebar-item:hover  { @apply bg-surface-hover text-ink; }
+.sidebar-item.active { @apply bg-gold/10 text-gold; }
 
-.sidebar-item:hover {
-  @apply bg-surface-hover text-ink;
-}
-
-.sidebar-item.active {
-  @apply bg-gold/10 text-gold;
-}
-
-/* ─── Progress Ring ─── */
+/* ═══════════════════════════════════════════════════════════════
+   PROGRESS RING
+   ═══════════════════════════════════════════════════════════════ */
 .progress-ring__circle {
   transition: stroke-dashoffset 0.5s ease;
   transform: rotate(-90deg);
   transform-origin: 50% 50%;
 }
 
-/* ─── Table ─── */
-.ff-table { @apply w-full border-collapse; }
-.ff-table th { @apply text-left text-xs font-semibold text-ink-muted uppercase tracking-wider px-4 py-3 border-b border-border; }
-.ff-table td { @apply px-4 py-3 text-sm border-b border-border/50; }
-.ff-table tr:hover td { @apply bg-surface-hover/30; }
+/* ═══════════════════════════════════════════════════════════════
+   TABLE
+   ═══════════════════════════════════════════════════════════════ */
+.ff-table              { @apply w-full border-collapse; }
+.ff-table th           { @apply text-left text-xs font-semibold text-ink-muted uppercase tracking-wider px-4 py-3 border-b border-border; }
+.ff-table td           { @apply px-4 py-3 text-sm border-b border-border/50; }
+.ff-table tr:hover td  { @apply bg-surface-hover/30; }
 
-/* ─── Form ─── */
+/* ═══════════════════════════════════════════════════════════════
+   FORM
+   ═══════════════════════════════════════════════════════════════ */
 .ff-input {
   @apply w-full bg-dark-100 border border-border rounded-lg px-3.5 py-2.5 text-sm text-ink placeholder-ink-faint
          focus:outline-none focus:border-gold/60 focus:ring-1 focus:ring-gold/30 transition-all;
@@ -132,3 +264,8 @@ body {
 
 /* ─── Toasts (Sonner) ─── */
 [data-sonner-toaster] { font-family: 'Inter', sans-serif !important; }
+
+/* ═══════════════════════════════════════════════════════════════
+   PAINTING MODE (format painter cursor)
+   ═══════════════════════════════════════════════════════════════ */
+.painting-mode { cursor: crosshair !important; }

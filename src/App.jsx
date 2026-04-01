@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { AppProvider, useApp } from './state/AppContext.jsx'
 
 // Public pages
@@ -11,6 +12,7 @@ import SignupWizard from './pages/auth/SignupWizard.jsx'
 
 // App shell + pages
 import AppShell         from './components/layout/AppShell.jsx'
+import TicketDrawer     from './components/ui/TicketDrawer.jsx'
 import DashboardPage    from './pages/app/DashboardPage.jsx'
 import ImpactorPage     from './pages/app/ImpactorPage.jsx'
 import RoboxPage        from './pages/app/RoboxPage.jsx'
@@ -25,10 +27,40 @@ import AllIssuesPage    from './pages/app/AllIssuesPage.jsx'
 import CRMPage          from './pages/app/CRMPage.jsx'
 import AdminPage        from './pages/app/AdminPage.jsx'
 
+// Actions
+import { OPEN_TICKET, CLOSE_TICKET } from './state/actions.js'
+
 // ─── Router ───────────────────────────────────────────────────
 function Router() {
-  const { state } = useApp()
+  const { state, dispatch } = useApp()
   const { page, user } = state
+
+  // Apply theme and font scale to document element
+  useEffect(() => {
+    const root = document.documentElement
+    // Resolve 'system' to actual preference
+    const resolvedTheme = state.theme === 'system'
+      ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      : (state.theme || 'light')
+    root.setAttribute('data-theme', resolvedTheme)
+    root.setAttribute('data-fontscale', state.fontSize || 'md')
+  }, [state.theme, state.fontSize])
+
+  // Hash routing — open ticket on load/hashchange
+  useEffect(() => {
+    const handleHash = () => {
+      const hash = window.location.hash
+      const m = hash.match(/^#ticket=(.+)$/)
+      if (m) {
+        dispatch({ type: OPEN_TICKET, id: m[1] })
+      } else if (hash === '') {
+        dispatch({ type: CLOSE_TICKET })
+      }
+    }
+    handleHash()
+    window.addEventListener('hashchange', handleHash)
+    return () => window.removeEventListener('hashchange', handleHash)
+  }, [dispatch])
 
   // Public routes (no auth needed)
   const publicPages = {
@@ -63,7 +95,12 @@ function Router() {
 
   const content = appPages[page] ?? <DashboardPage />
 
-  return <AppShell>{content}</AppShell>
+  return (
+    <>
+      <AppShell>{content}</AppShell>
+      <TicketDrawer />
+    </>
+  )
 }
 
 // ─── Root App ─────────────────────────────────────────────────

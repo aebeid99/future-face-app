@@ -239,20 +239,31 @@ export function reducer(state, action) {
     // ─── Initiatives ──────────────────────────────────────────
     case A.INITIATIVE_CREATE: {
       const okrTitle = state.okrs.find(o => o.id === action.okrId)?.title || ''
+      const iType = action.issueType || 'feature'
+      const defaultDesc = iType === 'user_story'
+        ? '<p><strong>As a</strong> [type of user]</p><p><strong>I want</strong> [goal/feature]</p><p><strong>So that</strong> [benefit/reason]</p><hr/><p><strong>Acceptance Criteria:</strong></p><ul><li>[ ] Criterion 1</li><li>[ ] Criterion 2</li></ul>'
+        : ''
       const item = {
         id: `ini_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-        title:     action.title,
-        owner:     action.owner     || '',
-        startDate: action.startDate || '',
-        dueDate:   action.dueDate   || '',
-        budget:    action.budget    || 0,
-        status:    action.status    || 'not_started',
-        krId:      action.krId      || null,
-        priority:  action.priority  || 'p2',
-        issueType: action.issueType || 'feature',
-        description: action.description || '',
-        comments:  [],
-        auditLog:  [],
+        title:       action.title,
+        owner:       action.owner       || '',
+        assignees:   action.assignees   || [],
+        startDate:   action.startDate   || '',
+        dueDate:     action.dueDate     || '',
+        budget:      action.budget      || 0,
+        status:      action.status      || 'not_started',
+        krId:        action.krId        || null,
+        priority:    action.priority    || 'p2',
+        issueType:   iType,
+        labels:      action.labels      || [],
+        description: action.description || defaultDesc,
+        comments:    [],
+        attachments: [],
+        subTickets:  [],
+        history:     [],
+        auditLog:    [],
+        createdAt:   new Date().toISOString(),
+        updatedAt:   new Date().toISOString(),
       }
       const nextState = {
         ...state,
@@ -263,17 +274,30 @@ export function reducer(state, action) {
 
     case A.INITIATIVE_UPDATE: {
       const ini = state.okrs.find(o => o.id === action.okrId)?.initiatives?.find(i => i.id === action.initiativeId)
-      const changed = Object.keys(action.updates).filter(k => k !== '_lastComment')
-      const actionLabel = action.updates.status ? `Changed status to "${action.updates.status}"` : `Updated ${changed.join(', ')}`
+      const SKIP = new Set(['history','comments','attachments','subTickets','auditLog','updatedAt','_lastComment'])
+      const changedKeys = Object.keys(action.updates).filter(k => !SKIP.has(k))
+      const actionLabel = action.updates.status
+        ? `Changed status to "${action.updates.status}"`
+        : changedKeys.length ? `Updated ${changedKeys.join(', ')}` : 'Updated'
+      // Build history entry for meaningful field changes
+      const histEntry = changedKeys.length ? {
+        id:      `h_${Date.now()}_${Math.random().toString(36).slice(2,5)}`,
+        user:    state.user?.name || 'System',
+        time:    new Date().toISOString(),
+        changes: changedKeys.map(k => ({ field: k, from: ini?.[k] ?? null, to: action.updates[k] })),
+      } : null
       const nextState = {
         ...state,
         okrs: state.okrs.map(o => {
           if (o.id !== action.okrId) return o
           return {
             ...o,
-            initiatives: (o.initiatives || []).map(i =>
-              i.id === action.initiativeId ? { ...i, ...action.updates } : i
-            ),
+            initiatives: (o.initiatives || []).map(i => {
+              if (i.id !== action.initiativeId) return i
+              const updated = { ...i, ...action.updates, updatedAt: new Date().toISOString() }
+              if (histEntry) updated.history = [...(i.history || []).slice(-49), histEntry]
+              return updated
+            }),
           }
         }),
       }
@@ -429,6 +453,142 @@ export function reducer(state, action) {
     case A.DEMO_PLAN:
       return { ...state, demoVariant: action.variant }
 
+    // ─── Ticket Drawer ─────────────────────────────────────────
+    case A.OPEN_TICKET:
+      return { ...state, openTicketId: action.id }
+    case A.CLOSE_TICKET:
+      return { ...state, openTicketId: null }
+
+    // ─── Ticket Comments ──────────────────────────────────────
+    case A.TICKET_COMMENT_ADD: {
+      const comment = {
+        id:       `cmt_${Date.now()}_${Math.random().toString(36).slice(2,5)}`,
+        author:   state.user?.name || 'You',
+        text:     action.text,
+        mentions: action.mentions || [],
+        ts:       Date.now(),
+        replies:  [],
+      }
+      return {
+        ...state,
+        okrs: state.okrs.map(o => o.id !== action.okrId ? o : {
+          ...o,
+          initiatives: (o.initiatives || []).map(i =>
+            i.id !== action.iniId ? i
+              : { ...i, comments: [...(i.comments || []), comment], updatedAt: new Date().toISOString() }
+          ),
+        }),
+      }
+    }
+
+    case A.TICKET_COMMENT_DEL: {
+      return {
+        ...state,
+        okrs: state.okrs.map(o => o.id !== action.okrId ? o : {
+          ...o,
+          initiatives: (o.initiatives || []).map(i =>
+            i.id !== action.iniId ? i
+              : { ...i, comments: (i.comments || []).filter(c => c.id !== action.commentId) }
+          ),
+        }),
+      }
+    }
+
+    case A.TICKET_REPLY_ADD: {
+      const reply = {
+        id:     `rep_${Date.now()}`,
+        author: state.user?.name || 'You',
+        text:   action.text,
+        ts:     Date.now(),
+      }
+      return {
+        ...state,
+        okrs: state.okrs.map(o => o.id !== action.okrId ? o : {
+          ...o,
+          initiatives: (o.initiatives || []).map(i =>
+            i.id !== action.iniId ? i : {
+              ...i,
+              comments: (i.comments || []).map(c =>
+                c.id !== action.commentId ? c
+                  : { ...c, replies: [...(c.replies || []), reply] }
+              ),
+            }
+          ),
+        }),
+      }
+    }
+
+    // ─── Sub-tickets ───────────────────────────────────────────
+    case A.SUB_TICKET_CREATE: {
+      const sub = {
+        id:          `sub_${Date.now()}_${Math.random().toString(36).slice(2,5)}`,
+        title:       action.title,
+        issueType:   action.issueType  || 'task',
+        status:      action.status     || 'not_started',
+        priority:    action.priority   || 'p2',
+        owner:       action.owner      || '',
+        dueDate:     action.dueDate    || '',
+        description: action.description || '',
+        comments:    [],
+        history:     [],
+        createdAt:   new Date().toISOString(),
+      }
+      return {
+        ...state,
+        okrs: state.okrs.map(o => o.id !== action.okrId ? o : {
+          ...o,
+          initiatives: (o.initiatives || []).map(i =>
+            i.id !== action.iniId ? i
+              : { ...i, subTickets: [...(i.subTickets || []), sub] }
+          ),
+        }),
+      }
+    }
+
+    case A.SUB_TICKET_UPDATE: {
+      return {
+        ...state,
+        okrs: state.okrs.map(o => o.id !== action.okrId ? o : {
+          ...o,
+          initiatives: (o.initiatives || []).map(i =>
+            i.id !== action.iniId ? i : {
+              ...i,
+              subTickets: (i.subTickets || []).map(s =>
+                s.id !== action.subId ? s : { ...s, ...action.updates }
+              ),
+            }
+          ),
+        }),
+      }
+    }
+
+    case A.SUB_TICKET_DELETE: {
+      return {
+        ...state,
+        okrs: state.okrs.map(o => o.id !== action.okrId ? o : {
+          ...o,
+          initiatives: (o.initiatives || []).map(i =>
+            i.id !== action.iniId ? i
+              : { ...i, subTickets: (i.subTickets || []).filter(s => s.id !== action.subId) }
+          ),
+        }),
+      }
+    }
+
+    // ─── Theme / Accessibility ────────────────────────────────
+    case A.THEME:
+      return { ...state, theme: action.theme }
+    case A.SET_FONT_SIZE:
+      return { ...state, fontSize: action.size }
+
+    // ─── Permissions ──────────────────────────────────────────
+    case A.ORG_PERM_SET:
+      return { ...state, org: { ...state.org, permissions: { ...state.org.permissions, ...action.permissions } } }
+
+    // ─── Attendance Policy ────────────────────────────────────
+    case A.ATTENDANCE_POLICY_SET:
+      return { ...state, org: { ...state.org, attendancePolicy: { ...(state.org.attendancePolicy || {}), ...action.policy } } }
+
     default:
       return state
   }
@@ -440,7 +600,10 @@ export const INIT_STATE = {
   step: 0,
   lang: 'en',
   demoVariant: 'A',
-  highlight: null,   // { id, okrId, ts } — set by HIGHLIGHT action, cleared by component
+  highlight: null,       // { id, okrId, ts } — set by HIGHLIGHT action, cleared by component
+  openTicketId: null,    // ID of the currently open ticket drawer
+  theme: 'light',        // 'light' | 'dark' | 'eyestrain' | 'system'
+  fontSize: 'md',        // 'sm' | 'md' | 'lg' | 'xl'
 
   northStar: {
     title: 'Weekly Active Paying Workspaces',
@@ -474,6 +637,10 @@ export const INIT_STATE = {
       completed: 'Completed',
       paused:    'Paused',
     },
+    permissions: {
+      canEdit: true,   // default: all authenticated users can edit
+    },
+    attendancePolicy: {}, // { [jobTitle]: true/false } — true = mandatory
     yearlyDiscount: 20,
     userCount: 1,
   },

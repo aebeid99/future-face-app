@@ -10,9 +10,30 @@ export const SIGNUP       = 'SIGNUP'
 // ─── Subscription ─────────────────────────────────────────────
 export const SUB_UPDATE   = 'SUB_UPDATE'
 
-// ─── Language / Theme ─────────────────────────────────────────
+// ─── Language / Theme / Accessibility ─────────────────────────
 export const LANG         = 'LANG'
-export const THEME        = 'THEME'
+export const THEME        = 'THEME'        // { theme: 'light'|'dark'|'eyestrain'|'system' }
+export const SET_FONT_SIZE = 'SET_FONT_SIZE' // { size: 'sm'|'md'|'lg'|'xl' }
+
+// ─── Ticket Drawer (global) ────────────────────────────────────
+export const OPEN_TICKET   = 'OPEN_TICKET'  // { id: 'ini_xxx' }
+export const CLOSE_TICKET  = 'CLOSE_TICKET'
+
+// ─── Ticket Comments ──────────────────────────────────────────
+export const TICKET_COMMENT_ADD = 'TICKET_COMMENT_ADD'  // { iniId, okrId, text, mentions? }
+export const TICKET_COMMENT_DEL = 'TICKET_COMMENT_DEL'  // { iniId, okrId, commentId }
+export const TICKET_REPLY_ADD   = 'TICKET_REPLY_ADD'    // { iniId, okrId, commentId, text }
+
+// ─── Sub-tickets (child issues within an initiative) ──────────
+export const SUB_TICKET_CREATE = 'SUB_TICKET_CREATE'  // { okrId, iniId, title, issueType, ... }
+export const SUB_TICKET_UPDATE = 'SUB_TICKET_UPDATE'  // { okrId, iniId, subId, updates }
+export const SUB_TICKET_DELETE = 'SUB_TICKET_DELETE'  // { okrId, iniId, subId }
+
+// ─── Permissions ──────────────────────────────────────────────
+export const ORG_PERM_SET = 'ORG_PERM_SET'  // { permissions: { canEdit: bool, ... } }
+
+// ─── Attendance Policy (Robox) ────────────────────────────────
+export const ATTENDANCE_POLICY_SET = 'ATTENDANCE_POLICY_SET'  // { policy: { [title]: bool } }
 
 // ─── OKR / Impactor ───────────────────────────────────────────
 export const OKR_CREATE   = 'OKR_CREATE'
