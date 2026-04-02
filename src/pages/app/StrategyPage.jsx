@@ -8,6 +8,7 @@ import { useApp } from '@/state/AppContext'
 import {
   OKR_CREATE, OKR_UPDATE, OKR_DELETE, OKR_REORDER,
   KR_CREATE, KR_UPDATE, KR_DELETE,
+  INITIATIVE_CREATE, OPEN_TICKET,
   NORTHSTAR_SET,
 } from '@/state/actions'
 import Btn from '@/components/ui/Btn'
@@ -191,6 +192,8 @@ function OKRDetailPanel({ okr, onClose }) {
   const [krForm, setKrForm] = useState(BLANK_KR)
   const [editingKrId, setEditingKrId] = useState(null)
   const [editKrForm, setEditKrForm] = useState({})
+  const [quickIniKrId, setQuickIniKrId] = useState(null)
+  const [quickIniTitle, setQuickIniTitle] = useState('')
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const dirty = JSON.stringify(form) !== JSON.stringify({ title: okr.title, owner: okr.owner || '', cadence: okr.cadence || 'Quarterly', status: okr.status || 'not_started', confidence: okr.confidence ?? 60, summary: okr.summary || '' })
@@ -360,6 +363,60 @@ function OKRDetailPanel({ okr, onClose }) {
                           className="h-full rounded-full bg-gold/60 transition-all"
                           style={{ width: `${Math.min(100, Math.round((kr.current / kr.target) * 100))}%` }}
                         />
+                      </div>
+                    )}
+                    {/* Quick-add initiative */}
+                    {quickIniKrId !== kr.id && (
+                      <button
+                        onClick={() => { setQuickIniKrId(kr.id); setQuickIniTitle('') }}
+                        className="mt-3 flex items-center gap-1.5 text-xs text-ink-muted hover:text-blue-400 transition-colors"
+                      >
+                        <Plus size={11} /> Add Initiative
+                      </button>
+                    )}
+                    {/* Quick-add initiative form */}
+                    {quickIniKrId === kr.id && (
+                      <div className="mt-3 flex items-center gap-2 p-2 bg-blue-500/10 rounded border border-blue-400/30">
+                        <input
+                          type="text"
+                          value={quickIniTitle}
+                          onChange={e => setQuickIniTitle(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && quickIniTitle.trim()) {
+                              dispatch({ type: INITIATIVE_CREATE, okrId: okr.id, krId: kr.id, title: quickIniTitle })
+                              setQuickIniTitle('')
+                              setQuickIniKrId(null)
+                            }
+                            if (e.key === 'Escape') {
+                              setQuickIniTitle('')
+                              setQuickIniKrId(null)
+                            }
+                          }}
+                          placeholder="Initiative title…"
+                          autoFocus
+                          className="flex-1 bg-dark/50 border border-blue-400/30 rounded px-2 py-1 text-xs text-ink outline-none focus:border-blue-400/60"
+                        />
+                        <button
+                          onClick={() => {
+                            if (quickIniTitle.trim()) {
+                              dispatch({ type: INITIATIVE_CREATE, okrId: okr.id, krId: kr.id, title: quickIniTitle })
+                              setQuickIniTitle('')
+                              setQuickIniKrId(null)
+                            }
+                          }}
+                          className="w-6 h-6 rounded bg-blue-400/20 hover:bg-blue-400/30 text-blue-400 flex items-center justify-center shrink-0"
+                        >
+                          <Check size={11} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setQuickIniTitle('')
+                            setQuickIniKrId(null)
+                          }}
+                          className="w-6 h-6 rounded hover:bg-border text-ink-muted flex items-center justify-center shrink-0"
+                        >
+                          <X size={11} />
+                        </button>
                       </div>
                     )}
                   </div>

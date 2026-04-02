@@ -830,6 +830,9 @@ export default function TicketDrawer() {
   if (!ticket) return null;
 
   const { ini, okr, kr, parent } = ticket;
+
+  // InitiativeView handles top-level initiatives; TicketDrawer only handles sub-tickets
+  if (parent === null) return null;
   const canEdit = state.org?.permissions?.canEdit ?? true;
 
   const handleUpdate = (updates) => {

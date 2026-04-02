@@ -20,6 +20,7 @@ import IssueDetailDrawer from '../../components/ui/IssueDetailDrawer.jsx'
 import { useApp } from '../../state/AppContext.jsx'
 import {
   OKR_CREATE, OKR_UPDATE, OKR_DELETE,
+  KR_CREATE, INITIATIVE_CREATE,
   INITIATIVE_UPDATE, INITIATIVE_DELETE,
   KR_UPDATE, OKR_REORDER, INITIATIVE_MOVE, KR_MOVE, OPEN_TICKET,
 } from '../../state/actions.js'
@@ -407,6 +408,12 @@ function LeftTree({
   const [overPos, setOverPos] = useState('after')
   const containerRef = useRef(null)
 
+  // Quick-add state for inline KR and Initiative creation
+  const [quickAddKrForOkr, setQuickAddKrForOkr] = useState(null)
+  const [quickAddKrTitle, setQuickAddKrTitle] = useState('')
+  const [quickAddIniForKr, setQuickAddIniForKr] = useState(null)
+  const [quickAddIniTitle, setQuickAddIniTitle] = useState('')
+
   // Connect external scrollRef
   useEffect(() => {
     if (scrollRef) scrollRef.current = containerRef.current
@@ -542,6 +549,10 @@ function LeftTree({
                   />
                   <span className="text-[10px] font-semibold text-gold">{row.progress}%</span>
                   <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                    <button onClick={() => setQuickAddKrForOkr(row.okrId)}
+                      className="w-5 h-5 rounded hover:bg-blue-500/10 text-ink-faint hover:text-blue-400 flex items-center justify-center">
+                      <Plus size={9} />
+                    </button>
                     <button onClick={() => onEdit(row.okr)}
                       className="w-5 h-5 rounded hover:bg-gold/10 text-ink-faint hover:text-gold flex items-center justify-center">
                       <Pencil size={9} />
@@ -554,6 +565,48 @@ function LeftTree({
                 </div>
               </div>
               {isDropTarget && overPos === 'after' && <DropLine />}
+              {/* Quick-add KR form */}
+              {quickAddKrForOkr === row.okrId && (
+                <div className="flex items-center gap-2 pl-5 pr-3 bg-blue-500/5 border-t border-blue-500/20">
+                  <input
+                    autoFocus
+                    type="text"
+                    value={quickAddKrTitle}
+                    onChange={e => setQuickAddKrTitle(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && quickAddKrTitle.trim()) {
+                        dispatch({ type: KR_CREATE, okrId: row.okrId, title: quickAddKrTitle.trim() })
+                        setQuickAddKrTitle('')
+                        setQuickAddKrForOkr(null)
+                      } else if (e.key === 'Escape') {
+                        setQuickAddKrTitle('')
+                        setQuickAddKrForOkr(null)
+                      }
+                    }}
+                    placeholder="New Key Result title…"
+                    className="flex-1 min-w-0 text-xs py-2 bg-transparent border-0 text-ink placeholder-ink-faint focus:outline-none"
+                  />
+                  <button
+                    onClick={() => {
+                      if (quickAddKrTitle.trim()) {
+                        dispatch({ type: KR_CREATE, okrId: row.okrId, title: quickAddKrTitle.trim() })
+                        setQuickAddKrTitle('')
+                        setQuickAddKrForOkr(null)
+                      }
+                    }}
+                    className="text-xs px-2 py-1 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 shrink-0">
+                    Save
+                  </button>
+                  <button
+                    onClick={() => {
+                      setQuickAddKrTitle('')
+                      setQuickAddKrForOkr(null)
+                    }}
+                    className="text-xs px-2 py-1 rounded bg-border/40 text-ink-faint hover:bg-border/60 shrink-0">
+                    Cancel
+                  </button>
+                </div>
+              )}
             </div>
           )
         }
@@ -599,6 +652,11 @@ function LeftTree({
                   />
                   <span className="text-[10px] font-medium text-gold/80">{prog}%</span>
                   <button
+                    onClick={e => { e.stopPropagation(); setQuickAddIniForKr(row.id) }}
+                    className="w-5 h-5 rounded hover:bg-green-500/10 text-ink-faint hover:text-green-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Plus size={9} />
+                  </button>
+                  <button
                     onClick={e => { e.stopPropagation(); onOpenIssue(row.kr, 'kr') }}
                     className="w-5 h-5 rounded hover:bg-gold/10 text-ink-faint hover:text-gold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                     title="Open Key Result">
@@ -607,6 +665,48 @@ function LeftTree({
                 </div>
               </div>
               {isDropTarget && overPos === 'after' && <DropLine />}
+              {/* Quick-add Initiative form */}
+              {quickAddIniForKr === row.id && (
+                <div className="flex items-center gap-2 pl-9 pr-3 bg-green-500/5 border-t border-green-500/20">
+                  <input
+                    autoFocus
+                    type="text"
+                    value={quickAddIniTitle}
+                    onChange={e => setQuickAddIniTitle(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && quickAddIniTitle.trim()) {
+                        dispatch({ type: INITIATIVE_CREATE, okrId: row.okrId, krId: row.id, title: quickAddIniTitle.trim() })
+                        setQuickAddIniTitle('')
+                        setQuickAddIniForKr(null)
+                      } else if (e.key === 'Escape') {
+                        setQuickAddIniTitle('')
+                        setQuickAddIniForKr(null)
+                      }
+                    }}
+                    placeholder="New Initiative title…"
+                    className="flex-1 min-w-0 text-xs py-2 bg-transparent border-0 text-ink placeholder-ink-faint focus:outline-none"
+                  />
+                  <button
+                    onClick={() => {
+                      if (quickAddIniTitle.trim()) {
+                        dispatch({ type: INITIATIVE_CREATE, okrId: row.okrId, krId: row.id, title: quickAddIniTitle.trim() })
+                        setQuickAddIniTitle('')
+                        setQuickAddIniForKr(null)
+                      }
+                    }}
+                    className="text-xs px-2 py-1 rounded bg-green-500/20 text-green-400 hover:bg-green-500/30 shrink-0">
+                    Save
+                  </button>
+                  <button
+                    onClick={() => {
+                      setQuickAddIniTitle('')
+                      setQuickAddIniForKr(null)
+                    }}
+                    className="text-xs px-2 py-1 rounded bg-border/40 text-ink-faint hover:bg-border/60 shrink-0">
+                    Cancel
+                  </button>
+                </div>
+              )}
             </div>
           )
         }
@@ -738,6 +838,12 @@ export default function RoadmapPage() {
   const [editForm,   setEditForm]   = useState({ title: '', quarter: currentQuarter(), owner: '' })
   const [newOpen,    setNewOpen]    = useState(false)
   const [newForm,    setNewForm]    = useState({ title: '', quarter: currentQuarter(), owner: user?.name || '' })
+
+  // Quick-add state for list view
+  const [quickAddKrForOkr, setQuickAddKrForOkr] = useState(null)
+  const [quickAddKrTitle, setQuickAddKrTitle] = useState('')
+  const [quickAddIniForKr, setQuickAddIniForKr] = useState(null)
+  const [quickAddIniTitle, setQuickAddIniTitle] = useState('')
 
   const openEdit = (okr) => { setEditTarget(okr); setEditForm({ title: okr.title, quarter: okr.quarter, owner: okr.owner || '' }) }
   const saveEdit = () => {
@@ -1030,19 +1136,31 @@ export default function RoadmapPage() {
                             <Badge variant={okr.status} dot size="sm">{statusLabel(okr.status)}</Badge>
                           </div>
                           <div className="flex items-center gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                            <button onClick={() => setQuickAddKrForOkr(okr.id)} className="w-7 h-7 rounded hover:bg-blue-500/10 text-ink-muted hover:text-blue-400 flex items-center justify-center" title="Add Key Result"><Plus size={12} /></button>
                             <button onClick={() => openEdit(okr)} className="w-7 h-7 rounded hover:bg-gold/10 text-ink-muted hover:text-gold flex items-center justify-center"><Pencil size={12} /></button>
                             <button onClick={() => dispatch({ type: OKR_DELETE, id: okr.id })} className="w-7 h-7 rounded hover:bg-red-500/10 text-ink-muted hover:text-red-400 flex items-center justify-center"><Trash2 size={12} /></button>
                           </div>
                         </div>
-                        {expanded[okr.id] && inis.length > 0 && (
-                          <div className="border-t border-border/50 bg-dark/20 py-1">
+                        {expanded[okr.id] && (
+                          <div className="border-t border-border/50 bg-dark/20">
+                            {inis.length > 0 && (
+                            <div className="flex items-center gap-2 px-3 py-2 border-b border-border/30 opacity-0 group-hover/row:opacity-100 transition-opacity text-xs">
+                              <button onClick={() => setQuickAddKrForOkr(okr.id)} className="px-2 py-1 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 flex items-center gap-1">
+                                <Plus size={10} /> Add KR
+                              </button>
+                              <button onClick={() => setQuickAddIniForKr(null)} className="px-2 py-1 rounded bg-green-500/20 text-green-400 hover:bg-green-500/30 flex items-center gap-1">
+                                <Plus size={10} /> Add Initiative
+                              </button>
+                            </div>
+                            )}
+                            <div className="py-1">
                             {inis.map(ini => {
                               const cfg = INI_STATUS[ini.status] || INI_STATUS.not_started
                               const Icon = cfg.icon
                               return (
                                 <div key={ini.id}
                                   className="flex items-center gap-2.5 pl-10 pr-3 py-1.5 hover:bg-dark/40 group cursor-pointer transition-colors"
-                                  onClick={() => handleOpenIssue(ini, 'initiative', okr.id)}>
+                                  onClick={() => dispatch({ type: OPEN_TICKET, id: ini.id })}>
                                   <Icon size={12} className={`${cfg.color} shrink-0`} />
                                   <div className="flex items-center gap-1 flex-1 min-w-0">
                                     <TypeChip type="initiative" short />
@@ -1054,6 +1172,7 @@ export default function RoadmapPage() {
                                 </div>
                               )
                             })}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1177,7 +1296,7 @@ export default function RoadmapPage() {
       />
 
       <IssueDetailDrawer
-        open={!!openIssue}
+        open={!!openIssue && openIssue?.itemType === 'kr'}
         onClose={() => setOpenIssue(null)}
         item={openIssue?.item}
         itemType={openIssue?.itemType}

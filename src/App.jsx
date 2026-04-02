@@ -13,6 +13,7 @@ import SignupWizard from './pages/auth/SignupWizard.jsx'
 // App shell + pages
 import AppShell         from './components/layout/AppShell.jsx'
 import TicketDrawer     from './components/ui/TicketDrawer.jsx'
+import InitiativeView   from './components/ui/InitiativeView.jsx'
 import DashboardPage    from './pages/app/DashboardPage.jsx'
 import ImpactorPage     from './pages/app/ImpactorPage.jsx'
 import RoboxPage        from './pages/app/RoboxPage.jsx'
@@ -99,6 +100,7 @@ function Router() {
     <>
       <AppShell>{content}</AppShell>
       <TicketDrawer />
+      <InitiativeView />
     </>
   )
 }

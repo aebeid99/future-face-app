@@ -26,7 +26,7 @@ import {
   CHAT_ADD, CHAT_UPDATE_LAST,
   HIGHLIGHT,
   OKR_REORDER, KR_MOVE, INITIATIVE_MOVE,
-  OPEN_TICKET,
+  OPEN_TICKET, SUB_TICKET_CREATE,
 } from '../../state/actions.js'
 import { t } from '../../utils/i18n.js'
 import { currentQuarter, quarterList, formatRelative } from '../../utils/formatting.js'
@@ -673,6 +673,15 @@ function InitiativeRow({ ini, okr, onSelect }) {
         </span>
       )}
 
+      {/* Link Issue (quick add sub-ticket) */}
+      <button
+        onClick={e => { e.stopPropagation(); onSelect(ini); dispatch({ type: 'INIT_LINK_ISSUE', iniId: ini.id, okrId: okr.id }) }}
+        className="opacity-0 group-hover:opacity-100 p-1 text-ink-faint hover:text-blue-400 rounded transition-opacity"
+        title="Link issue"
+      >
+        <Link2 size={11} />
+      </button>
+
       {/* Open as ticket */}
       <button
         onClick={e => { e.stopPropagation(); dispatch({ type: OPEN_TICKET, id: ini.id }) }}
@@ -794,6 +803,13 @@ function OkrExpandedPanel({ okr, members, user }) {
   const [dragIniId,   setDragIniId]   = useState(null)   // initiative id being dragged
   const [dragIniOkrId, setDragIniOkrId] = useState(null)
   const [overKrKey,   setOverKrKey]   = useState(null)   // target KR bucket key
+  // Quick-add state for inline forms
+  const [quickKrOkrId, setQuickKrOkrId] = useState(null)
+  const [quickKrTitle, setQuickKrTitle] = useState('')
+  const [quickIniKrKey, setQuickIniKrKey] = useState(null) // key = `${okrId}_${krId}`
+  const [quickIniTitle, setQuickIniTitle] = useState('')
+  const [linkIssueIniId, setLinkIssueIniId] = useState(null)
+  const [linkIssueType, setLinkIssueType] = useState('task')
 
   const krs      = okr.keyResults  || []
   const inis     = okr.initiatives || []
@@ -986,10 +1002,67 @@ function OkrExpandedPanel({ okr, members, user }) {
                       <span className="text-[10px] text-ink-faint">{krInis.length}/{krInis.length} active</span>
                     </div>
                   )}
+                  {kr && (
+                    <button
+                      onClick={e => { e.stopPropagation(); setQuickIniKrKey(key); setQuickIniTitle('') }}
+                      className="opacity-0 hover:opacity-100 p-1 text-ink-faint hover:text-blue-400 rounded transition-opacity shrink-0"
+                      title="Add initiative"
+                    >
+                      <Plus size={11} />
+                    </button>
+                  )}
                   <button className="text-ink-faint shrink-0">
                     {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
                   </button>
                 </div>
+
+                {/* Quick-add Initiative form (inline under KR header) */}
+                {!isCollapsed && quickIniKrKey === key && (
+                  <div className="px-3 py-2 bg-blue-500/10 border-b border-blue-400/30">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={quickIniTitle}
+                        onChange={e => setQuickIniTitle(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && quickIniTitle.trim()) {
+                            dispatch({ type: INITIATIVE_CREATE, okrId: okr.id, krId: kr?.id || null, title: quickIniTitle })
+                            setQuickIniTitle('')
+                            setQuickIniKrKey(null)
+                          }
+                          if (e.key === 'Escape') {
+                            setQuickIniTitle('')
+                            setQuickIniKrKey(null)
+                          }
+                        }}
+                        placeholder="Initiative title…"
+                        autoFocus
+                        className="flex-1 bg-dark/50 border border-blue-400/30 rounded px-2 py-1 text-xs text-ink outline-none focus:border-blue-400/60"
+                      />
+                      <button
+                        onClick={() => {
+                          if (quickIniTitle.trim()) {
+                            dispatch({ type: INITIATIVE_CREATE, okrId: okr.id, krId: kr?.id || null, title: quickIniTitle })
+                            setQuickIniTitle('')
+                            setQuickIniKrKey(null)
+                          }
+                        }}
+                        className="w-6 h-6 rounded bg-blue-400/20 hover:bg-blue-400/30 text-blue-400 flex items-center justify-center shrink-0"
+                      >
+                        <Check size={11} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setQuickIniTitle('')
+                          setQuickIniKrKey(null)
+                        }}
+                        className="w-6 h-6 rounded hover:bg-border text-ink-muted flex items-center justify-center shrink-0"
+                      >
+                        <X size={11} />
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Initiative rows */}
                 {!isCollapsed && (
