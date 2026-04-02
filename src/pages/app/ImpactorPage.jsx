@@ -16,6 +16,7 @@ import ProgressBar from '../../components/ui/ProgressBar.jsx'
 import ProgressRing from '../../components/ui/ProgressRing.jsx'
 import Avatar from '../../components/ui/Avatar.jsx'
 import EmptyState from '../../components/ui/EmptyState.jsx'
+import TypeChip from '../../components/ui/TypeChip.jsx'
 import { useApp } from '../../state/AppContext.jsx'
 import {
   OKR_CREATE, OKR_UPDATE, OKR_DELETE,
@@ -309,7 +310,10 @@ function KrRow({ kr, okrId }) {
           <span className={`text-[9px] font-mono px-1 py-0.5 rounded bg-surface ${TYPE_BADGE_COLOR[type] || 'text-ink-faint'}`}>
             {TYPE_LABEL[type] || '123'}
           </span>
-          <p className="text-xs font-medium text-ink leading-tight truncate">{kr.title}</p>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <TypeChip type="keyresult" short />
+            <p className="text-xs font-medium text-ink leading-tight truncate">{kr.title}</p>
+          </div>
         </div>
         <p className="text-[10px] text-ink-muted mt-0.5 truncate">{valStr}</p>
         {(kr.tags?.length > 0) && (
@@ -377,7 +381,10 @@ function InitiativeDetailDrawer({ ini, okr, onClose, onDispatch }) {
         <div className="flex items-start gap-3 p-4 border-b border-border">
           <div className="flex-1 min-w-0">
             <p className="text-[10px] uppercase tracking-wider text-ink-faint mb-1">Initiative Detail</p>
-            <h3 className="text-sm font-semibold text-ink leading-snug">{ini.title}</h3>
+            <div className="flex items-center gap-2 mb-1">
+              <TypeChip type="initiative" />
+              <h3 className="text-sm font-semibold text-ink leading-snug">{ini.title}</h3>
+            </div>
           </div>
           <div className="flex items-center gap-1 shrink-0">
             <button className="w-7 h-7 rounded hover:bg-border text-ink-muted flex items-center justify-center"><Share2 size={13} /></button>
@@ -427,12 +434,18 @@ function InitiativeDetailDrawer({ ini, okr, onClose, onDispatch }) {
                 <Target size={13} className="text-gold" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-medium text-ink leading-snug">{okr.title}</p>
+                <div className="flex items-center gap-1.5">
+                  <TypeChip type="objective" />
+                  <p className="text-xs font-medium text-ink leading-snug">{okr.title}</p>
+                </div>
                 {parentKr && (
-                  <p className="text-[10px] text-ink-muted mt-0.5 flex items-center gap-1">
+                  <div className="text-[10px] text-ink-muted mt-0.5 flex items-center gap-1">
                     <Link2 size={9} />
-                    {parentKr.title}
-                  </p>
+                    <div className="flex items-center gap-1">
+                      <TypeChip type="keyresult" short />
+                      <span>{parentKr.title}</span>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
@@ -622,9 +635,12 @@ function InitiativeRow({ ini, okr, onSelect }) {
 
       {/* Title + KR chip */}
       <div className="flex-1 min-w-0">
-        <p className={`text-xs font-medium leading-tight ${ini.status === 'done' ? 'line-through text-ink-faint' : 'text-ink'}`}>
-          {ini.title}
-        </p>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <TypeChip type="initiative" short />
+          <p className={`text-xs font-medium leading-tight truncate ${ini.status === 'done' ? 'line-through text-ink-faint' : 'text-ink'}`}>
+            {ini.title}
+          </p>
+        </div>
         {ini.comments?.length > 0 && (
           <p className="text-[10px] text-ink-faint mt-0.5 flex items-center gap-0.5">
             <MessageSquare size={8} /> {ini.comments.length} comment{ini.comments.length !== 1 ? 's' : ''}
@@ -1300,7 +1316,10 @@ export default function ImpactorPage() {
                 </button>
                 <ProgressRing value={okr.progress} size={40} stroke={4} />
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-semibold text-ink ${okr.archived ? 'line-through text-ink-muted' : ''}`}>{okr.title}</p>
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <TypeChip type="objective" short />
+                    <p className={`text-sm font-semibold text-ink ${okr.archived ? 'line-through text-ink-muted' : ''}`}>{okr.title}</p>
+                  </div>
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                     <Avatar name={okr.owner} size="xs" />
                     <span className="text-xs text-ink-muted">{okr.owner}</span>

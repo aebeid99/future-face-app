@@ -13,6 +13,7 @@ import {
 import Avatar from './Avatar';
 import Btn from './Btn';
 import RichEditor from './RichEditor';
+import TypeChip from './TypeChip';
 
 const ISSUE_TYPE_CFG = {
   feature:     { label: 'Feature',     icon: Star,         color: 'text-blue-400',    bg: 'bg-blue-500/10' },
@@ -230,7 +231,10 @@ function SubTicketsSection({ ini, canEdit, onUpdate }) {
                 <TypeBadge type={selectedSub.issueType} />
                 <StatusPill status={selectedSub.status} />
               </div>
-              <h4 className="font-semibold text-ink mb-2">{selectedSub.title}</h4>
+              <h4 className="font-semibold text-ink mb-2">
+                <TypeChip type="initiative" short className="mr-2" />
+                {selectedSub.title}
+              </h4>
               {selectedSub.description && (
                 <p className="text-ink-muted text-sm mb-2">{selectedSub.description}</p>
               )}
@@ -261,7 +265,10 @@ function SubTicketsSection({ ini, canEdit, onUpdate }) {
                       <TypeBadge type={sub.issueType} />
                       <StatusPill status={sub.status} />
                     </div>
-                    <p className="text-ink font-medium text-sm">{sub.title}</p>
+                    <p className="text-ink font-medium text-sm">
+                      <TypeChip type="initiative" short className="mr-2" />
+                      {sub.title}
+                    </p>
                   </div>
                   {sub.owner && <Avatar id={sub.owner} size="sm" />}
                 </div>
@@ -774,11 +781,13 @@ function RightSidebar({ ini, okr, kr, canEdit, onUpdate }) {
         <div className="space-y-1 text-sm">
           {okr && (
             <button className="text-gold hover:text-gold/80 block">
+              <TypeChip type="objective" short className="mr-2" />
               {okr.title}
             </button>
           )}
           {kr && (
             <button className="text-gold hover:text-gold/80 block">
+              <TypeChip type="keyresult" short className="mr-2" />
               {kr.title}
             </button>
           )}
@@ -873,10 +882,12 @@ export default function TicketDrawer() {
 
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2 text-xs text-ink-muted">
+              <TypeChip type="objective" short />
               <button className="hover:text-gold" onClick={() => {/* navigate to OKR */}}>
                 {okr?.title || 'OKR'}
               </button>
               <span>/</span>
+              <TypeChip type="keyresult" short />
               <button className="hover:text-gold" onClick={() => {/* navigate to KR */}}>
                 {kr?.title || 'KR'}
               </button>

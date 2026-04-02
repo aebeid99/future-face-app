@@ -9,6 +9,7 @@ import ProgressBar from '../../components/ui/ProgressBar.jsx'
 import ProgressRing from '../../components/ui/ProgressRing.jsx'
 import Avatar from '../../components/ui/Avatar.jsx'
 import Btn from '../../components/ui/Btn.jsx'
+import TypeChip from '../../components/ui/TypeChip.jsx'
 import { useApp } from '../../state/AppContext.jsx'
 import { NAV } from '../../state/actions.js'
 import { currentQuarter, formatRelative, progressColor } from '../../utils/formatting.js'
@@ -215,7 +216,10 @@ export default function DashboardPage() {
                     >
                       <ProgressRing value={okr.progress || 0} size={44} stroke={4} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-ink truncate">{okr.title}</p>
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <TypeChip type="objective" short />
+                          <p className="text-sm font-medium text-ink truncate">{okr.title}</p>
+                        </div>
                         <div className="flex items-center gap-3 mt-1 flex-wrap">
                           {okr.owner && (
                             <div className="flex items-center gap-1.5">

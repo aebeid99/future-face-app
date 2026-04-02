@@ -12,6 +12,7 @@ import {
 } from '@/state/actions'
 import Btn from '@/components/ui/Btn'
 import Badge from '@/components/ui/Badge'
+import TypeChip from '@/components/ui/TypeChip'
 
 // ── Status config ───────────────────────────────────────────────────────────
 const STATUS_CFG = {
@@ -152,7 +153,10 @@ function OKRCard({ okr, selected, onClick, onDelete, dragHandlers, isDragging, i
 
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2 mb-2">
-          <p className="text-sm font-semibold text-ink leading-snug">{okr.title}</p>
+          <div className="flex items-start gap-1.5 min-w-0">
+            <TypeChip type="objective" short className="mt-0.5" />
+            <p className="text-sm font-semibold text-ink leading-snug">{okr.title}</p>
+          </div>
           <button
             onClick={e => { e.stopPropagation(); onDelete(okr.id) }}
             className="opacity-0 group-hover:opacity-100 p-1 text-ink-faint hover:text-red-400 transition-all flex-shrink-0"
@@ -326,7 +330,10 @@ function OKRDetailPanel({ okr, onClose }) {
                 ) : (
                   <div>
                     <div className="flex items-start justify-between gap-2 mb-2">
-                      <p className="text-sm font-semibold text-ink">{kr.title}</p>
+                      <div className="flex items-start gap-1.5 min-w-0">
+                        <TypeChip type="keyresult" short className="mt-0.5" />
+                        <p className="text-sm font-semibold text-ink">{kr.title}</p>
+                      </div>
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={() => { setEditingKrId(kr.id); setEditKrForm({ title: kr.title, current: kr.current, target: kr.target, unit: kr.unit, dueDate: kr.dueDate }) }}
                           className="p-1 text-ink-faint hover:text-ink rounded transition-colors">

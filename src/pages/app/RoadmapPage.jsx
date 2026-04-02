@@ -15,6 +15,7 @@ import Select from '../../components/ui/Select.jsx'
 import ProgressBar from '../../components/ui/ProgressBar.jsx'
 import EmptyState from '../../components/ui/EmptyState.jsx'
 import Avatar from '../../components/ui/Avatar.jsx'
+import TypeChip from '../../components/ui/TypeChip.jsx'
 import IssueDetailDrawer from '../../components/ui/IssueDetailDrawer.jsx'
 import { useApp } from '../../state/AppContext.jsx'
 import {
@@ -521,7 +522,10 @@ function LeftTree({
                   {expanded[row.okrId] ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                 </button>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-ink truncate">{row.label}</p>
+                  <div className="flex items-center gap-1 min-w-0">
+                    <TypeChip type="objective" short />
+                    <p className="text-xs font-semibold text-ink truncate">{row.label}</p>
+                  </div>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     {row.owner && <Avatar name={row.owner} size="xs" />}
                     <span className="text-[10px] text-ink-faint">{row.krsCount} KRs</span>
@@ -576,9 +580,11 @@ function LeftTree({
                 <button className="text-ink-faint shrink-0">
                   {expandedKrs[row.id] ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
                 </button>
-                <Target size={10} className="text-gold/70 shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-medium text-ink truncate">{row.label}</p>
+                  <div className="flex items-center gap-1 min-w-0">
+                    <TypeChip type="keyresult" short />
+                    <p className="text-[11px] font-medium text-ink truncate">{row.label}</p>
+                  </div>
                   {row.kr?.target && (
                     <p className="text-[10px] text-ink-faint">{row.kr.current ?? row.kr.baseline ?? 0} / {row.kr.target} {row.kr.unit}</p>
                   )}
@@ -641,7 +647,8 @@ function LeftTree({
                 <button onClick={cycleStatus} className="shrink-0">
                   <Icon size={11} className={`${cfg.color} transition-colors`} />
                 </button>
-                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => dispatch({ type: OPEN_TICKET, id: row.id })}>
+                <div className="flex-1 min-w-0 cursor-pointer flex items-center gap-1" onClick={() => dispatch({ type: OPEN_TICKET, id: row.id })}>
+                  <TypeChip type="initiative" short />
                   <p className={`text-[11px] truncate ${row.status === 'done' ? 'line-through text-ink-faint' : 'text-ink hover:text-gold transition-colors'}`}>
                     {row.label}
                   </p>
@@ -1001,7 +1008,10 @@ export default function RoadmapPage() {
                             {expanded[okr.id] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                           </button>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-ink truncate">{okr.title}</p>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <TypeChip type="objective" />
+                              <p className="text-sm font-medium text-ink truncate">{okr.title}</p>
+                            </div>
                             <div className="flex items-center gap-2 mt-0.5">
                               <Avatar name={okr.owner} size="xs" />
                               <span className="text-xs text-ink-muted">{okr.owner}</span>
@@ -1033,7 +1043,10 @@ export default function RoadmapPage() {
                                   className="flex items-center gap-2.5 pl-10 pr-3 py-1.5 hover:bg-dark/40 group cursor-pointer transition-colors"
                                   onClick={() => handleOpenIssue(ini, 'initiative', okr.id)}>
                                   <Icon size={12} className={`${cfg.color} shrink-0`} />
-                                  <span className={`text-xs flex-1 truncate ${ini.status === 'done' ? 'line-through text-ink-faint' : 'text-ink hover:text-gold'}`}>{ini.title}</span>
+                                  <div className="flex items-center gap-1 flex-1 min-w-0">
+                                    <TypeChip type="initiative" short />
+                                    <span className={`text-xs flex-1 truncate ${ini.status === 'done' ? 'line-through text-ink-faint' : 'text-ink hover:text-gold'}`}>{ini.title}</span>
+                                  </div>
                                   {ini.owner && <Avatar name={ini.owner} size="xs" />}
                                   {ini.dueDate && <span className="text-[10px] text-ink-faint flex items-center gap-0.5"><Calendar size={8} />{new Date(ini.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
                                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${cfg.color} bg-dark border border-border/60`}>{cfg.label}</span>
