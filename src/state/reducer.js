@@ -453,6 +453,176 @@ export function reducer(state, action) {
     case A.DEMO_PLAN:
       return { ...state, demoVariant: action.variant }
 
+    // ─── Command Palette ──────────────────────────────────────
+    case A.CMD_PALETTE_OPEN:  return { ...state, cmdPaletteOpen: true }
+    case A.CMD_PALETTE_CLOSE: return { ...state, cmdPaletteOpen: false }
+
+    // ─── Notifications ────────────────────────────────────────
+    case A.NOTIF_ADD: {
+      const notif = {
+        id: `notif_${Date.now()}_${Math.random().toString(36).slice(2,5)}`,
+        ts: new Date().toISOString(),
+        read: false,
+        ...action.notification,
+      }
+      return { ...state, notifications: [notif, ...(state.notifications || [])].slice(0, 100) }
+    }
+    case A.NOTIF_READ:
+      return { ...state, notifications: (state.notifications || []).map(n => n.id === action.id ? { ...n, read: true } : n) }
+    case A.NOTIF_READ_ALL:
+      return { ...state, notifications: (state.notifications || []).map(n => ({ ...n, read: true })) }
+    case A.NOTIF_CLEAR:
+      return { ...state, notifications: [] }
+
+    // ─── Workspace (P1) ───────────────────────────────────────
+    case A.WS_CREATE: {
+      const ws = {
+        id: `ws_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
+        createdAt: new Date().toISOString(),
+        members: [{ userId: state.user?.id || 'u1', role: 'owner', joinedAt: new Date().toISOString() }],
+        canvases: [],
+        onboarding: { complete: false, step: 0, role: null, sector: 'tech', northStar: null },
+        ...action.workspace,
+      }
+      const workspaces = [...(state.workspaces || []), ws]
+      return { ...state, workspaces, currentWorkspaceId: ws.id }
+    }
+    case A.WS_UPDATE: {
+      const workspaces = (state.workspaces || []).map(w =>
+        w.id !== action.id ? w : { ...w, ...action.updates }
+      )
+      return { ...state, workspaces }
+    }
+    case A.WS_DELETE: {
+      const workspaces = (state.workspaces || []).filter(w => w.id !== action.id)
+      const currentWorkspaceId = state.currentWorkspaceId === action.id
+        ? (workspaces[0]?.id || null)
+        : state.currentWorkspaceId
+      return { ...state, workspaces, currentWorkspaceId }
+    }
+    case A.WS_SWITCH:
+      return { ...state, currentWorkspaceId: action.id, page: 'dashboard' }
+    case A.WS_MEMBER_ADD: {
+      const workspaces = (state.workspaces || []).map(w =>
+        w.id !== action.wsId ? w
+          : { ...w, members: [...(w.members || []), action.member] }
+      )
+      return { ...state, workspaces }
+    }
+    case A.WS_MEMBER_REMOVE: {
+      const workspaces = (state.workspaces || []).map(w =>
+        w.id !== action.wsId ? w
+          : { ...w, members: (w.members || []).filter(m => m.userId !== action.memberId) }
+      )
+      return { ...state, workspaces }
+    }
+    case A.WS_MEMBER_ROLE: {
+      const workspaces = (state.workspaces || []).map(w =>
+        w.id !== action.wsId ? w
+          : { ...w, members: (w.members || []).map(m => m.userId === action.memberId ? { ...m, role: action.role } : m) }
+      )
+      return { ...state, workspaces }
+    }
+    case A.JOIN_REQUEST_SEND: {
+      const req = { id: `jr_${Date.now()}`, ...action, status: 'pending', ts: new Date().toISOString() }
+      return { ...state, joinRequests: [...(state.joinRequests || []), req] }
+    }
+    case A.JOIN_REQUEST_DECIDE: {
+      const joinRequests = (state.joinRequests || []).map(r =>
+        r.id !== action.requestId ? r : { ...r, status: action.approved ? 'approved' : 'rejected' }
+      )
+      return { ...state, joinRequests }
+    }
+
+    // ─── Onboarding (P2) ──────────────────────────────────────
+    case A.ONBOARDING_SET: {
+      const workspaces = (state.workspaces || []).map(w =>
+        w.id !== action.wsId ? w
+          : { ...w, onboarding: { ...w.onboarding, ...action.updates } }
+      )
+      return { ...state, workspaces }
+    }
+    case A.ONBOARDING_COMPLETE: {
+      const workspaces = (state.workspaces || []).map(w =>
+        w.id !== action.wsId ? w
+          : { ...w, onboarding: { ...w.onboarding, complete: true } }
+      )
+      return { ...state, workspaces, page: 'dashboard' }
+    }
+
+    // ─── AI Credits / Billing ─────────────────────────────────
+    case A.AI_CREDIT_USE: {
+      const used = Math.min(
+        (state.aiCredits?.dailyUsed || 0) + (action.amount || 1),
+        state.aiCredits?.dailyLimit || 20
+      )
+      return { ...state, aiCredits: { ...(state.aiCredits || {}), dailyUsed: used } }
+    }
+    case A.AI_CREDIT_RESET:
+      return { ...state, aiCredits: { ...(state.aiCredits || {}), dailyUsed: 0, weeklySessionsUsed: 0 } }
+    case A.AI_SESSION_USE: {
+      const sessions = (state.aiCredits?.weeklySessionsUsed || 0) + 1
+      return { ...state, aiCredits: { ...(state.aiCredits || {}), weeklySessionsUsed: sessions } }
+    }
+    case A.BILLING_PLAN_SET: {
+      const limits = { free: { dailyLimit: 20, weeklySessionLimit: 3 }, pro: { dailyLimit: 500, weeklySessionLimit: 999 }, enterprise: { dailyLimit: 99999, weeklySessionLimit: 99999 } }
+      const l = limits[action.plan] || limits.free
+      return { ...state, aiCredits: { ...(state.aiCredits || {}), plan: action.plan, ...l } }
+    }
+
+    // ─── Canvas (P9) ──────────────────────────────────────────
+    case A.CANVAS_CREATE: {
+      const canvas = {
+        id: `canvas_${Date.now()}_${Math.random().toString(36).slice(2,5)}`,
+        createdAt: new Date().toISOString(),
+        nodes: [], edges: [],
+        ...action.canvas,
+      }
+      const workspaces = (state.workspaces || []).map(w =>
+        w.id !== action.wsId ? w
+          : { ...w, canvases: [...(w.canvases || []), canvas] }
+      )
+      return { ...state, workspaces, openCanvasId: canvas.id }
+    }
+    case A.CANVAS_UPDATE: {
+      const workspaces = (state.workspaces || []).map(w =>
+        w.id !== action.wsId ? w
+          : { ...w, canvases: (w.canvases || []).map(c => c.id !== action.canvasId ? c : { ...c, ...action.updates, updatedAt: new Date().toISOString() }) }
+      )
+      return { ...state, workspaces }
+    }
+    case A.CANVAS_DELETE: {
+      const workspaces = (state.workspaces || []).map(w =>
+        w.id !== action.wsId ? w
+          : { ...w, canvases: (w.canvases || []).filter(c => c.id !== action.canvasId) }
+      )
+      return { ...state, workspaces }
+    }
+    case A.CANVAS_OPEN:
+      return { ...state, openCanvasId: action.canvasId, page: 'canvas' }
+    case A.CANVAS_NODE_ADD: {
+      const node = { id: `node_${Date.now()}_${Math.random().toString(36).slice(2,5)}`, ...action.node }
+      const workspaces = (state.workspaces || []).map(w =>
+        w.id !== action.wsId ? w
+          : { ...w, canvases: (w.canvases || []).map(c => c.id !== action.canvasId ? c : { ...c, nodes: [...(c.nodes || []), node] }) }
+      )
+      return { ...state, workspaces }
+    }
+    case A.CANVAS_NODE_UPDATE: {
+      const workspaces = (state.workspaces || []).map(w =>
+        w.id !== action.wsId ? w
+          : { ...w, canvases: (w.canvases || []).map(c => c.id !== action.canvasId ? c : { ...c, nodes: (c.nodes || []).map(n => n.id !== action.nodeId ? n : { ...n, ...action.updates }) }) }
+      )
+      return { ...state, workspaces }
+    }
+    case A.CANVAS_NODE_DELETE: {
+      const workspaces = (state.workspaces || []).map(w =>
+        w.id !== action.wsId ? w
+          : { ...w, canvases: (w.canvases || []).map(c => c.id !== action.canvasId ? c : { ...c, nodes: (c.nodes || []).filter(n => n.id !== action.nodeId) }) }
+      )
+      return { ...state, workspaces }
+    }
+
     // ─── Ticket Drawer ─────────────────────────────────────────
     case A.OPEN_TICKET:
       return { ...state, openTicketId: action.id }
@@ -600,10 +770,30 @@ export const INIT_STATE = {
   step: 0,
   lang: 'en',
   demoVariant: 'A',
-  highlight: null,       // { id, okrId, ts } — set by HIGHLIGHT action, cleared by component
-  openTicketId: null,    // ID of the currently open ticket drawer
-  theme: 'light',        // 'light' | 'dark' | 'eyestrain' | 'system'
-  fontSize: 'md',        // 'sm' | 'md' | 'lg' | 'xl'
+  highlight: null,
+  openTicketId: null,
+  theme: 'light',
+  fontSize: 'md',
+  cmdPaletteOpen: false,
+
+  // ── Workspace multi-tenancy (P1) ───────────────────────────
+  currentWorkspaceId: null,
+  workspaces: [],
+  joinRequests: [],
+
+  // ── Notifications (P6) ────────────────────────────────────
+  notifications: [],
+
+  // ── AI Credits (billing) ──────────────────────────────────
+  aiCredits: {
+    plan: 'free',          // 'free' | 'pro' | 'enterprise'
+    dailyLimit: 20,
+    dailyUsed: 0,
+    weeklySessionLimit: 3,
+    weeklySessionsUsed: 0,
+    dailyResetAt: null,    // ISO date string
+    weeklyResetAt: null,   // ISO date string
+  },
 
   northStar: {
     title: 'Weekly Active Paying Workspaces',

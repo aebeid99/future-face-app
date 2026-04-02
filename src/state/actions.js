@@ -82,3 +82,43 @@ export const WORKFLOW_CONFIG_SET = 'WORKFLOW_CONFIG_SET'
 
 // ─── Demo ─────────────────────────────────────────────────────
 export const DEMO_PLAN     = 'DEMO_PLAN'
+
+// ─── Workspace (P1) ───────────────────────────────────────────
+export const WS_CREATE          = 'WS_CREATE'
+export const WS_UPDATE          = 'WS_UPDATE'
+export const WS_DELETE          = 'WS_DELETE'
+export const WS_SWITCH          = 'WS_SWITCH'
+export const WS_MEMBER_ADD      = 'WS_MEMBER_ADD'
+export const WS_MEMBER_REMOVE   = 'WS_MEMBER_REMOVE'
+export const WS_MEMBER_ROLE     = 'WS_MEMBER_ROLE'
+export const JOIN_REQUEST_SEND  = 'JOIN_REQUEST_SEND'
+export const JOIN_REQUEST_DECIDE= 'JOIN_REQUEST_DECIDE'
+
+// ─── Onboarding (P2) ──────────────────────────────────────────
+export const ONBOARDING_SET     = 'ONBOARDING_SET'
+export const ONBOARDING_COMPLETE= 'ONBOARDING_COMPLETE'
+
+// ─── AI Credits / Billing ─────────────────────────────────────
+export const AI_CREDIT_USE      = 'AI_CREDIT_USE'
+export const AI_CREDIT_RESET    = 'AI_CREDIT_RESET'
+export const AI_SESSION_USE     = 'AI_SESSION_USE'
+export const BILLING_PLAN_SET   = 'BILLING_PLAN_SET'
+
+// ─── Canvas (P9) ──────────────────────────────────────────────
+export const CANVAS_CREATE      = 'CANVAS_CREATE'
+export const CANVAS_UPDATE      = 'CANVAS_UPDATE'
+export const CANVAS_DELETE      = 'CANVAS_DELETE'
+export const CANVAS_NODE_ADD    = 'CANVAS_NODE_ADD'
+export const CANVAS_NODE_UPDATE = 'CANVAS_NODE_UPDATE'
+export const CANVAS_NODE_DELETE = 'CANVAS_NODE_DELETE'
+export const CANVAS_OPEN        = 'CANVAS_OPEN'
+
+// ─── Notifications (P6) ───────────────────────────────────────
+export const NOTIF_ADD          = 'NOTIF_ADD'
+export const NOTIF_READ         = 'NOTIF_READ'
+export const NOTIF_READ_ALL     = 'NOTIF_READ_ALL'
+export const NOTIF_CLEAR        = 'NOTIF_CLEAR'
+
+// ─── Command Palette (P6) ─────────────────────────────────────
+export const CMD_PALETTE_OPEN   = 'CMD_PALETTE_OPEN'
+export const CMD_PALETTE_CLOSE  = 'CMD_PALETTE_CLOSE'

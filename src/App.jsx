@@ -10,10 +10,21 @@ import DemoPage     from './pages/public/DemoPage.jsx'
 import LoginPage    from './pages/auth/LoginPage.jsx'
 import SignupWizard from './pages/auth/SignupWizard.jsx'
 
+// Workspace pages (P1)
+import WorkspaceSelectorPage from './pages/workspace/WorkspaceSelectorPage.jsx'
+import WorkspaceCreatePage   from './pages/workspace/WorkspaceCreatePage.jsx'
+
+// Onboarding wizard (P2)
+import OnboardingWizard from './pages/onboarding/OnboardingWizard.jsx'
+
+// Canvas page (P9)
+import CanvasPage from './pages/app/CanvasPage.jsx'
+
 // App shell + pages
 import AppShell         from './components/layout/AppShell.jsx'
 import TicketDrawer     from './components/ui/TicketDrawer.jsx'
 import InitiativeView   from './components/ui/InitiativeView.jsx'
+import CommandPalette   from './components/ui/CommandPalette.jsx'
 import DashboardPage    from './pages/app/DashboardPage.jsx'
 import ImpactorPage     from './pages/app/ImpactorPage.jsx'
 import RoboxPage        from './pages/app/RoboxPage.jsx'
@@ -34,12 +45,11 @@ import { OPEN_TICKET, CLOSE_TICKET } from './state/actions.js'
 // ─── Router ───────────────────────────────────────────────────
 function Router() {
   const { state, dispatch } = useApp()
-  const { page, user } = state
+  const { page, user, workspaces = [], currentWorkspaceId } = state
 
   // Apply theme and font scale to document element
   useEffect(() => {
     const root = document.documentElement
-    // Resolve 'system' to actual preference
     const resolvedTheme = state.theme === 'system'
       ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
       : (state.theme || 'light')
@@ -71,11 +81,26 @@ function Router() {
     login:   <LoginPage />,
     signup:  <SignupWizard />,
   }
-
   if (publicPages[page]) return publicPages[page]
 
-  // Protected routes — redirect to login if not authenticated
+  // Protected — redirect to login if not authenticated
   if (!user) return <LoginPage />
+
+  // ── P1 Workspace routing ──────────────────────────────────────
+  // Workspace management pages (full-screen, no AppShell)
+  if (page === 'workspace_select') return <WorkspaceSelectorPage />
+  if (page === 'workspace_create') return <WorkspaceCreatePage />
+
+  // If user is logged in but has no workspace → show selector
+  if (!currentWorkspaceId || workspaces.length === 0) {
+    return <WorkspaceSelectorPage />
+  }
+
+  // ── P2 Onboarding ─────────────────────────────────────────────
+  const currentWs = workspaces.find(w => w.id === currentWorkspaceId)
+  if (currentWs && currentWs.onboarding && !currentWs.onboarding.complete && page !== 'workspace_select' && page !== 'workspace_create') {
+    return <OnboardingWizard workspace={currentWs} />
+  }
 
   // App routes (inside AppShell)
   const appPages = {
@@ -86,6 +111,7 @@ function Router() {
     ai_pilot:   <AIPilotPage />,
     roadmap:    <RoadmapPage />,
     all_issues: <AllIssuesPage />,
+    canvas:     <CanvasPage />,
     admin:      <AdminPage />,
     crm:        <CRMPage />,
     sales:      <SalesPage />,
@@ -101,6 +127,7 @@ function Router() {
       <AppShell>{content}</AppShell>
       <TicketDrawer />
       <InitiativeView />
+      <CommandPalette />
     </>
   )
 }
