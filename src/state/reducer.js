@@ -759,6 +759,129 @@ export function reducer(state, action) {
     case A.ATTENDANCE_POLICY_SET:
       return { ...state, org: { ...state.org, attendancePolicy: { ...(state.org.attendancePolicy || {}), ...action.policy } } }
 
+    // ─── Terminology (P4) ─────────────────────────────────────
+    case A.TERM_OVERRIDE: {
+      const wsIdx = state.workspaces.findIndex(w => w.id === (action.wsId || state.currentWorkspaceId))
+      if (wsIdx === -1) return state
+      const updated = state.workspaces.map((w, i) => i === wsIdx
+        ? { ...w, customTerms: { ...(w.customTerms || {}), ...action.terms } }
+        : w
+      )
+      return { ...state, workspaces: updated }
+    }
+
+    // ─── Owner System (P5) ────────────────────────────────────
+    case A.OWNER_SET: {
+      const okrs = state.okrs.map(okr => {
+        if (okr.id !== action.okrId) return okr
+        if (action.subId) {
+          // set owner on sub-ticket inside an initiative
+          const initiatives = (okr.initiatives || []).map(ini => {
+            if (ini.id !== action.iniId) return ini
+            const subTickets = (ini.subTickets || []).map(st =>
+              st.id === action.subId ? { ...st, owner: action.owner } : st
+            )
+            return { ...ini, subTickets }
+          })
+          return { ...okr, initiatives }
+        }
+        if (action.iniId) {
+          const initiatives = (okr.initiatives || []).map(ini =>
+            ini.id === action.iniId ? { ...ini, owner: action.owner } : ini
+          )
+          return { ...okr, initiatives }
+        }
+        return { ...okr, owner: action.owner }
+      })
+      return { ...state, okrs }
+    }
+
+    // ─── Discovery (P7) ───────────────────────────────────────
+    case A.DISCOVERY_LOAD:
+      return { ...state, discoveryCards: action.cards || [] }
+
+    case A.DISCOVERY_DISMISS:
+      return { ...state, discoveryCards: (state.discoveryCards || []).filter(c => c.id !== action.id) }
+
+    case A.DISCOVERY_PROMOTE: {
+      const card = (state.discoveryCards || []).find(c => c.id === action.id)
+      if (!card) return state
+      const newIssue = {
+        id:       `iss_${Date.now()}`,
+        title:    card.title,
+        status:   'todo',
+        priority: card.impact === 'high' ? 'high' : 'medium',
+        type:     'feature',
+        createdAt: new Date().toISOString(),
+        tags:     ['discovery'],
+      }
+      return {
+        ...state,
+        issues: [...(state.issues || []), newIssue],
+        discoveryCards: (state.discoveryCards || []).filter(c => c.id !== action.id),
+      }
+    }
+
+    // ─── Sprint (P8) ──────────────────────────────────────────
+    case A.SPRINT_CREATE: {
+      const sprint = {
+        id:        `spr_${Date.now()}`,
+        name:      action.name || 'New Sprint',
+        goal:      action.goal || '',
+        startDate: action.startDate || null,
+        endDate:   action.endDate   || null,
+        status:    'planned',  // planned | active | completed
+        issueIds:  [],
+        velocity:  0,
+        createdAt: new Date().toISOString(),
+      }
+      return { ...state, sprints: [...(state.sprints || []), sprint] }
+    }
+
+    case A.SPRINT_UPDATE: {
+      const sprints = (state.sprints || []).map(s =>
+        s.id === action.id ? { ...s, ...action.updates } : s
+      )
+      return { ...state, sprints }
+    }
+
+    case A.SPRINT_DELETE:
+      return { ...state, sprints: (state.sprints || []).filter(s => s.id !== action.id) }
+
+    case A.SPRINT_START: {
+      const sprints = (state.sprints || []).map(s =>
+        s.id === action.id ? { ...s, status: 'active', startDate: s.startDate || new Date().toISOString() } : s
+      )
+      return { ...state, sprints }
+    }
+
+    case A.SPRINT_COMPLETE: {
+      const sprints = (state.sprints || []).map(s => {
+        if (s.id !== action.id) return s
+        const velocity = s.issueIds.length // simplified velocity
+        return { ...s, status: 'completed', velocity, completedAt: new Date().toISOString() }
+      })
+      return { ...state, sprints }
+    }
+
+    case A.SPRINT_ISSUE_ADD: {
+      const sprints = (state.sprints || []).map(s =>
+        s.id === action.sprintId && !s.issueIds.includes(action.issueId)
+          ? { ...s, issueIds: [...s.issueIds, action.issueId] }
+          : s
+      )
+      return { ...state, sprints }
+    }
+
+    case A.SPRINT_ISSUE_REMOVE: {
+      const sprints = (state.sprints || []).map(s =>
+        s.id === action.sprintId
+          ? { ...s, issueIds: s.issueIds.filter(id => id !== action.issueId) }
+          : s
+      )
+      return { ...state, sprints }
+    }
+
     default:
       return state
   }
@@ -783,6 +906,12 @@ export const INIT_STATE = {
 
   // ── Notifications (P6) ────────────────────────────────────
   notifications: [],
+
+  // ── Discovery cards (P7) ──────────────────────────────────
+  discoveryCards: [],
+
+  // ── Sprints (P8) ──────────────────────────────────────────
+  sprints: [],
 
   // ── AI Credits (billing) ──────────────────────────────────
   aiCredits: {

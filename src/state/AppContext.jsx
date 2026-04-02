@@ -38,6 +38,9 @@ export function AppProvider({ children }) {
           notifications:        Array.isArray(parsed.notifications) ? parsed.notifications : init.notifications,
           // Billing / AI credits
           aiCredits:            restoredAiCredits,
+          // P7 discovery + P8 sprints
+          discoveryCards:       Array.isArray(parsed.discoveryCards) ? parsed.discoveryCards : init.discoveryCards,
+          sprints:              Array.isArray(parsed.sprints) ? parsed.sprints : init.sprints,
           // Never restore drawer / palette open state
           openTicketId:         null,
           cmdPaletteOpen:       false,
@@ -69,6 +72,8 @@ export function AppProvider({ children }) {
         joinRequests:       state.joinRequests,
         notifications:      (state.notifications || []).slice(0, 50),
         aiCredits:          state.aiCredits,
+        discoveryCards:     state.discoveryCards,
+        sprints:            state.sprints,
       }))
     } catch {}
   }, [
@@ -77,6 +82,7 @@ export function AppProvider({ children }) {
     state.theme, state.fontSize, state.page,
     state.workspaces, state.currentWorkspaceId, state.joinRequests,
     state.notifications, state.aiCredits,
+    state.discoveryCards, state.sprints,
   ])
 
   // Apply RTL direction

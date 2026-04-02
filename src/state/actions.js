@@ -122,3 +122,23 @@ export const NOTIF_CLEAR        = 'NOTIF_CLEAR'
 // ─── Command Palette (P6) ─────────────────────────────────────
 export const CMD_PALETTE_OPEN   = 'CMD_PALETTE_OPEN'
 export const CMD_PALETTE_CLOSE  = 'CMD_PALETTE_CLOSE'
+
+// ─── Terminology (P4) ─────────────────────────────────────────
+export const TERM_OVERRIDE      = 'TERM_OVERRIDE'   // { wsId, terms: { okr, kr, ... } }
+
+// ─── Owner System (P5) ────────────────────────────────────────
+export const OWNER_SET          = 'OWNER_SET'       // { okrId, iniId, subId?, owner }
+
+// ─── Discovery (P7) ───────────────────────────────────────────
+export const DISCOVERY_LOAD     = 'DISCOVERY_LOAD'  // { cards: [...] }
+export const DISCOVERY_DISMISS  = 'DISCOVERY_DISMISS' // { id }
+export const DISCOVERY_PROMOTE  = 'DISCOVERY_PROMOTE' // { id } → turns into issue
+
+// ─── Sprint (P8) ──────────────────────────────────────────────
+export const SPRINT_CREATE      = 'SPRINT_CREATE'
+export const SPRINT_UPDATE      = 'SPRINT_UPDATE'
+export const SPRINT_DELETE      = 'SPRINT_DELETE'
+export const SPRINT_START       = 'SPRINT_START'
+export const SPRINT_COMPLETE    = 'SPRINT_COMPLETE'
+export const SPRINT_ISSUE_ADD   = 'SPRINT_ISSUE_ADD'
+export const SPRINT_ISSUE_REMOVE= 'SPRINT_ISSUE_REMOVE'

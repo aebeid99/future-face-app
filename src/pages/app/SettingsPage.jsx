@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import {
   Building2, Globe, Bell, Shield, Palette, Download, Trash2,
-  Key, ChevronRight, Moon, Sun, Check, AlertTriangle, Eye, Monitor
+  Key, ChevronRight, Moon, Sun, Check, AlertTriangle, Eye, Monitor,
+  Languages, Save,
 } from 'lucide-react'
 import Card, { CardHeader } from '../../components/ui/Card.jsx'
 import Btn from '../../components/ui/Btn.jsx'
@@ -9,7 +10,8 @@ import Input from '../../components/ui/Input.jsx'
 import Select from '../../components/ui/Select.jsx'
 import Badge from '../../components/ui/Badge.jsx'
 import { useApp } from '../../state/AppContext.jsx'
-import { ORG_UPDATE, STATUS_CONFIG, LANG, LOGOUT, THEME, SET_FONT_SIZE, ORG_PERM_SET } from '../../state/actions.js'
+import { ORG_UPDATE, STATUS_CONFIG, LANG, LOGOUT, THEME, SET_FONT_SIZE, ORG_PERM_SET, TERM_OVERRIDE } from '../../state/actions.js'
+import { DEFAULT_TERMS } from '../../hooks/useTerm.js'
 import { t } from '../../utils/i18n.js'
 
 // ─── Toggle switch ─────────────────────────────────────────────
@@ -438,6 +440,93 @@ export default function SettingsPage() {
         </div>
       </Card>
 
+      {/* ── Terminology Configurator (P4) ── */}
+      <TerminologySection />
+
     </div>
+  )
+}
+
+// ─── Terminology Configurator ──────────────────────────────────────────────────
+function TerminologySection() {
+  const { state, dispatch } = useApp()
+  const { workspaces = [], currentWorkspaceId } = state
+
+  const currentWs   = workspaces.find(w => w.id === currentWorkspaceId)
+  const customTerms = currentWs?.customTerms || {}
+
+  const TERM_KEYS = [
+    { key: 'okr',         label: 'OKR (singular)',         placeholder: 'e.g. Goal, Aim, Objective' },
+    { key: 'okrs',        label: 'OKR (plural)',            placeholder: 'e.g. Goals, Aims' },
+    { key: 'kr',          label: 'Key Result (singular)',   placeholder: 'e.g. KPI, Metric, Indicator' },
+    { key: 'krs',         label: 'Key Results (plural)',    placeholder: 'e.g. KPIs, Metrics' },
+    { key: 'initiative',  label: 'Initiative (singular)',   placeholder: 'e.g. Program, Project, Study' },
+    { key: 'initiatives', label: 'Initiatives (plural)',    placeholder: 'e.g. Programs, Projects' },
+    { key: 'issue',       label: 'Issue (singular)',        placeholder: 'e.g. Task, Activity, Action' },
+    { key: 'issues',      label: 'Issues (plural)',         placeholder: 'e.g. Tasks, Activities' },
+    { key: 'northstar',   label: 'North Star',              placeholder: 'e.g. Strategic Vision, Mission' },
+    { key: 'sprint',      label: 'Sprint (singular)',       placeholder: 'e.g. Work Cycle, Care Cycle' },
+  ]
+
+  const [draft, setDraft]   = useState(() => ({ ...customTerms }))
+  const [saved, setSaved]   = useState(false)
+
+  function handleSave() {
+    if (!currentWorkspaceId) return
+    dispatch({ type: TERM_OVERRIDE, wsId: currentWorkspaceId, terms: draft })
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  function handleReset() {
+    setDraft({})
+    dispatch({ type: TERM_OVERRIDE, wsId: currentWorkspaceId, terms: {} })
+  }
+
+  if (!currentWs) return null
+
+  return (
+    <Card>
+      <CardHeader
+        title="Terminology"
+        icon={Languages}
+        subtitle="Customise labels to match your organisation's language. Leave blank to use the workspace sector defaults."
+      />
+      <div className="p-4 space-y-4">
+        <div className="p-3 rounded-xl bg-gold/5 border border-gold/20 text-xs text-ink-muted">
+          Sector: <span className="font-semibold text-gold capitalize">{currentWs.sector || 'tech'}</span>
+          &nbsp;· Changes apply only to this workspace.
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {TERM_KEYS.map(({ key, label, placeholder }) => (
+            <div key={key}>
+              <label className="block text-xs text-ink-muted mb-1 font-medium">{label}</label>
+              <input
+                value={draft[key] || ''}
+                onChange={e => setDraft(d => ({ ...d, [key]: e.target.value }))}
+                placeholder={`Default: ${DEFAULT_TERMS[key]} · ${placeholder}`}
+                className="w-full bg-surface-hover border border-border rounded-lg px-3 py-2 text-sm text-ink placeholder:text-ink-faint outline-none focus:border-gold/50 transition-colors"
+              />
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2 pt-2 border-t border-border">
+          <Btn variant="ghost" size="sm" className="text-ink-faint" onClick={handleReset}>
+            Reset to defaults
+          </Btn>
+          <div className="flex-1" />
+          {saved && (
+            <span className="flex items-center gap-1 text-xs text-teal-400">
+              <Check size={12} />Saved
+            </span>
+          )}
+          <Btn variant="primary" size="sm" className="gap-1.5" onClick={handleSave}>
+            <Save size={12} />Save terminology
+          </Btn>
+        </div>
+      </div>
+    </Card>
   )
 }

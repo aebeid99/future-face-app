@@ -4,7 +4,7 @@ import {
   CreditCard, Settings, ScrollText, HelpCircle,
   ChevronLeft, ChevronRight, LogOut, Check,
   Compass, Layers, Shield, PenSquare, Plus, ChevronDown,
-  Palette,
+  Palette, Telescope, Zap, Brain,
 } from 'lucide-react'
 import Logo from '../ui/Logo.jsx'
 import Avatar from '../ui/Avatar.jsx'
@@ -21,6 +21,9 @@ const NAV_ITEMS = [
   { id: 'roadmap',    icon: Map,             key: 'sidebar_roadmap',    group: 'main' },
   { id: 'all_issues', icon: Layers,          label: 'All Issues',       group: 'main' },
   { id: 'canvas',     icon: Palette,         label: 'Canvas',           group: 'main', isNew: true },
+  { id: 'discovery',  icon: Telescope,       label: 'Discovery',        group: 'main', isNew: true },
+  { id: 'sprint',     icon: Zap,             label: 'Sprints',          group: 'main', isNew: true },
+  { id: 'ceo',        icon: Brain,           label: 'CEO Intelligence', group: 'main', isNew: true },
   { id: 'robox',      icon: Users2,          key: 'sidebar_robox',      group: 'main', product: 'robox' },
   { id: 'ai_pilot',   icon: Sparkles,        key: 'sidebar_ai_pilot',   group: 'main', product: 'aiPilot' },
   { id: 'admin',      icon: Shield,          label: 'Admin',            group: 'main' },

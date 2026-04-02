@@ -38,6 +38,9 @@ import StrategyPage     from './pages/app/StrategyPage.jsx'
 import AllIssuesPage    from './pages/app/AllIssuesPage.jsx'
 import CRMPage          from './pages/app/CRMPage.jsx'
 import AdminPage        from './pages/app/AdminPage.jsx'
+import DiscoveryPage    from './pages/app/DiscoveryPage.jsx'
+import SprintPage       from './pages/app/SprintPage.jsx'
+import CEOPage          from './pages/app/CEOPage.jsx'
 
 // Actions
 import { OPEN_TICKET, CLOSE_TICKET } from './state/actions.js'
@@ -118,6 +121,9 @@ function Router() {
     billing:    <BillingPage />,
     settings:   <SettingsPage />,
     audit:      <AuditPage />,
+    discovery:  <DiscoveryPage />,
+    sprint:     <SprintPage />,
+    ceo:        <CEOPage />,
   }
 
   const content = appPages[page] ?? <DashboardPage />

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Search, LayoutDashboard, Compass, Target, Map, Layers, Sparkles, Users2, Settings, CreditCard, ScrollText, Shield, Palette, X, ArrowRight, Hash } from 'lucide-react'
+import { Search, LayoutDashboard, Compass, Target, Map, Layers, Sparkles, Users2, Settings, CreditCard, ScrollText, Shield, Palette, X, ArrowRight, Hash, Telescope, Zap, Brain } from 'lucide-react'
 import { useApp } from '../../state/AppContext.jsx'
 import { CMD_PALETTE_CLOSE, NAV } from '../../state/actions.js'
 
@@ -10,6 +10,9 @@ const PAGE_ACTIONS = [
   { id: 'roadmap',    label: 'Roadmap',       desc: 'Gantt · Timeline',   icon: Map,             type: 'page' },
   { id: 'all_issues', label: 'All Issues',    desc: 'Work management',    icon: Layers,          type: 'page' },
   { id: 'canvas',     label: 'Canvas',        desc: 'Whiteboard · Diagrams', icon: Palette,      type: 'page' },
+  { id: 'discovery',  label: 'Discovery',     desc: 'AI signals & insights',    icon: Telescope,   type: 'page' },
+  { id: 'sprint',     label: 'Sprints',       desc: 'Sprint planning & board',  icon: Zap,         type: 'page' },
+  { id: 'ceo',        label: 'CEO Intelligence', desc: 'Health score & briefing', icon: Brain,     type: 'page' },
   { id: 'ai_pilot',   label: 'AI Pilot',      desc: 'Intelligence & automation', icon: Sparkles, type: 'page' },
   { id: 'robox',      label: 'Robox',         desc: 'Workforce & attendance', icon: Users2,      type: 'page' },
   { id: 'settings',   label: 'Settings',      desc: 'Org & preferences',  icon: Settings,        type: 'page' },
