@@ -522,7 +522,7 @@ function LeftTree({
                 onDrop={e => handleDrop(e, row)}
                 onDragEnd={() => { setDragKey(null); setOverKey(null) }}
                 className={[
-                  'flex items-center gap-2 px-3 border-b border-border/50 hover:bg-dark/20 cursor-pointer group transition-colors select-none overflow-hidden',
+                  'flex items-center gap-2 pl-2 pr-3 border-b border-border/50 border-l-[3px] border-l-violet-500/60 bg-violet-500/[0.05] hover:bg-violet-500/[0.08] cursor-pointer group transition-colors select-none overflow-hidden',
                   dragKey === row.key ? 'opacity-40' : '',
                   isDropTarget ? 'bg-gold/5' : '',
                 ].join(' ')}
@@ -626,12 +626,17 @@ function LeftTree({
                 onDrop={e => handleDrop(e, row)}
                 onDragEnd={() => { setDragKey(null); setOverKey(null) }}
                 className={[
-                  'flex items-center gap-2 pl-5 pr-3 border-b border-border/40 hover:bg-dark/15 group transition-colors select-none overflow-hidden',
+                  'flex items-center gap-1 pl-0 pr-3 border-b border-border/40 border-l-[3px] border-l-teal-500/50 bg-teal-500/[0.03] hover:bg-teal-500/[0.06] group transition-colors select-none overflow-hidden',
                   dragKey === row.key ? 'opacity-40' : '',
                   isDropTarget ? 'bg-blue-500/5' : '',
                 ].join(' ')}
                 style={{ height: ROW_H }}
                 onClick={() => toggleKr(row.id)}>
+                {/* Tree connector: OKR → KR */}
+                <div className="w-5 shrink-0 self-stretch relative">
+                  <div className="absolute top-0 bottom-1/2 left-2.5 w-px bg-violet-500/30" />
+                  <div className="absolute top-1/2 left-2.5 w-2.5 h-px bg-violet-500/30" />
+                </div>
                 <button className="text-ink-faint shrink-0">
                   {expandedKrs[row.id] ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
                 </button>
@@ -734,13 +739,28 @@ function LeftTree({
                 onDrop={e => handleDrop(e, row)}
                 onDragEnd={() => { setDragKey(null); setOverKey(null) }}
                 className={[
-                  'flex items-center gap-2 border-b border-border/30 hover:bg-dark/10 group transition-colors overflow-hidden',
-                  row.isUnderKr ? 'pl-9 pr-3' : 'pl-6 pr-3',
+                  'flex items-center gap-2 pl-0 pr-3 border-b border-border/30 border-l-[2px] group transition-colors overflow-hidden',
+                  row.isUnderKr
+                    ? 'border-l-sky-500/60 bg-sky-500/[0.03] hover:bg-sky-500/[0.06]'
+                    : 'border-l-sky-500/30 bg-sky-500/[0.02] hover:bg-dark/10',
                   dragKey === row.key ? 'opacity-40' : '',
                   isDropTarget ? 'bg-blue-500/5' : '',
                   row.status === 'blocked' ? 'bg-red-500/5' : '',
                 ].join(' ')}
                 style={{ height: ROW_H }}>
+                {/* Tree connectors: KR → INI */}
+                {row.isUnderKr ? (
+                  <div className="shrink-0 self-stretch relative" style={{ width: 36 }}>
+                    <div className="absolute top-0 bottom-1/2 left-2.5 w-px bg-violet-500/20" />
+                    <div className="absolute top-0 bottom-1/2 left-[22px] w-px bg-teal-500/25" />
+                    <div className="absolute top-1/2 left-[22px] w-3 h-px bg-teal-500/25" />
+                  </div>
+                ) : (
+                  <div className="shrink-0 self-stretch relative" style={{ width: 24 }}>
+                    <div className="absolute top-0 bottom-1/2 left-2.5 w-px bg-violet-500/20" />
+                    <div className="absolute top-1/2 left-2.5 w-3 h-px bg-violet-500/20" />
+                  </div>
+                )}
                 <span className="text-ink-faint opacity-0 group-hover:opacity-60 cursor-grab active:cursor-grabbing shrink-0 transition-opacity"
                   onMouseDown={e => e.stopPropagation()}>
                   <GripVertical size={10} />
@@ -1154,24 +1174,52 @@ export default function RoadmapPage() {
                             </div>
                             )}
                             <div className="py-1">
-                            {inis.map(ini => {
-                              const cfg = INI_STATUS[ini.status] || INI_STATUS.not_started
-                              const Icon = cfg.icon
-                              return (
-                                <div key={ini.id}
-                                  className="flex items-center gap-2.5 pl-10 pr-3 py-1.5 hover:bg-dark/40 group cursor-pointer transition-colors"
-                                  onClick={() => dispatch({ type: OPEN_TICKET, id: ini.id })}>
-                                  <Icon size={12} className={`${cfg.color} shrink-0`} />
-                                  <div className="flex items-center gap-1 flex-1 min-w-0">
-                                    <TypeChip type="initiative" short />
-                                    <span className={`text-xs flex-1 truncate ${ini.status === 'done' ? 'line-through text-ink-faint' : 'text-ink hover:text-gold'}`}>{ini.title}</span>
+                            {/* Group initiatives by KR for visual hierarchy */}
+                            {(() => {
+                              const krList = okr.keyResults || []
+                              const listGroups = []
+                              krList.forEach(kr => {
+                                const krInis = inis.filter(i => i.krId === kr.id)
+                                if (krInis.length > 0) listGroups.push({ kr, inis: krInis })
+                              })
+                              const orphans = inis.filter(i => !i.krId)
+                              if (orphans.length > 0) listGroups.push({ kr: null, inis: orphans })
+                              const renderIniRow = (ini) => {
+                                const cfg = INI_STATUS[ini.status] || INI_STATUS.not_started
+                                const Icon = cfg.icon
+                                return (
+                                  <div key={ini.id}
+                                    className="flex items-center gap-2.5 pl-10 pr-3 py-1.5 hover:bg-dark/40 group cursor-pointer transition-colors border-l-[2px] border-l-sky-500/30"
+                                    onClick={() => dispatch({ type: OPEN_TICKET, id: ini.id })}>
+                                    <Icon size={12} className={`${cfg.color} shrink-0`} />
+                                    <div className="flex items-center gap-1 flex-1 min-w-0">
+                                      <TypeChip type="initiative" short />
+                                      <span className={`text-xs flex-1 truncate ${ini.status === 'done' ? 'line-through text-ink-faint' : 'text-ink hover:text-gold'}`}>{ini.title}</span>
+                                    </div>
+                                    {ini.owner && <Avatar name={ini.owner} size="xs" />}
+                                    {ini.dueDate && <span className="text-[10px] text-ink-faint flex items-center gap-0.5"><Calendar size={8} />{new Date(ini.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${cfg.color} bg-dark border border-border/60`}>{cfg.label}</span>
                                   </div>
-                                  {ini.owner && <Avatar name={ini.owner} size="xs" />}
-                                  {ini.dueDate && <span className="text-[10px] text-ink-faint flex items-center gap-0.5"><Calendar size={8} />{new Date(ini.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
-                                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${cfg.color} bg-dark border border-border/60`}>{cfg.label}</span>
+                                )
+                              }
+                              if (listGroups.length === 0) return inis.map(renderIniRow)
+                              return listGroups.map(({ kr, inis: gInis }) => (
+                                <div key={kr?.id || '_unlinked'}>
+                                  {/* KR sub-header */}
+                                  <div className="flex items-center gap-2 px-4 py-1.5 bg-teal-500/[0.06] border-b border-t border-border/30 border-l-[3px] border-l-teal-500/50">
+                                    {kr
+                                      ? <TypeChip type="keyresult" short />
+                                      : <span className="text-[9px] uppercase tracking-wider text-ink-faint px-1.5 py-0.5 rounded border border-border/50 bg-border/20">orphan</span>
+                                    }
+                                    <span className="text-[11px] font-medium text-ink-muted truncate flex-1">
+                                      {kr ? kr.title : 'Unlinked Initiatives'}
+                                    </span>
+                                    <span className="text-[10px] text-ink-faint shrink-0">{gInis.length} ini{gInis.length !== 1 ? 's' : ''}</span>
+                                  </div>
+                                  {gInis.map(renderIniRow)}
                                 </div>
-                              )
-                            })}
+                              ))
+                            })()}
                             </div>
                           </div>
                         )}

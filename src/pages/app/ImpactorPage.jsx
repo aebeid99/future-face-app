@@ -851,7 +851,7 @@ function OkrExpandedPanel({ okr, members, user }) {
   const toggleKrCollapse = (krId) => setCollapsedKrs(c => ({ ...c, [krId]: !c[krId] }))
 
   return (
-    <div className="mt-4 ml-9 border-t border-border pt-4">
+    <div className="mt-4 ml-7 pl-2 border-t border-l-2 border-l-violet-500/25 border-border/60 pt-4">
       {/* Tab bar */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-0.5 bg-dark rounded-lg p-0.5">
@@ -965,8 +965,12 @@ function OkrExpandedPanel({ okr, members, user }) {
                   setDragIniId(null); setDragIniOkrId(null); setOverKrKey(null)
                 }}
                 className={[
-                  'rounded-xl overflow-hidden border transition-all',
-                  overKrKey === key && dragIniId ? 'border-gold/50 shadow-[0_0_10px_rgba(234,197,12,0.1)]' : 'border-border',
+                  'rounded-xl overflow-hidden border border-l-[3px] transition-all',
+                  overKrKey === key && dragIniId
+                    ? 'border-gold/50 border-l-gold/70 shadow-[0_0_10px_rgba(234,197,12,0.1)]'
+                    : key === '_unlinked'
+                      ? 'border-border border-l-border'
+                      : 'border-border border-l-teal-500/50',
                 ].join(' ')}>
                 {/* KR Header — dark navy style from screenshot 2 */}
                 <div
@@ -985,7 +989,10 @@ function OkrExpandedPanel({ okr, members, user }) {
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-[11px] font-bold tracking-wide text-ink truncate">{headerText}</p>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {kr && <TypeChip type="keyresult" short />}
+                      <p className="text-[11px] font-bold tracking-wide text-ink truncate">{kr ? kr.title : headerText}</p>
+                    </div>
                     {kr && (
                       <div className="flex items-center gap-2 mt-0.5">
                         {krOwner && <span className="text-[10px] text-ink-faint">Owner: {krOwner}</span>}
