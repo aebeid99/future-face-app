@@ -20,20 +20,45 @@ mkdirSync(join(DIST, 'assets'), { recursive: true })
 
 // ── 2. Read .env for define map ──────────────────────────────
 function loadEnv() {
-  const defines = {}
+  const envVars = {}
+
+  // 1) Read from .env file (local development)
   try {
     const content = readFileSync(join(ROOT, '.env'), 'utf8')
     content.split('\n').forEach(line => {
       const [k, ...vs] = line.split('=')
       if (k && k.trim() && !k.startsWith('#') && k.trim().startsWith('VITE_')) {
-        defines[`import.meta.env.${k.trim()}`] = JSON.stringify(vs.join('=').trim())
+        envVars[k.trim()] = vs.join('=').trim()
       }
     })
   } catch {}
+
+  // 2) Read from process.env (Netlify / CI builds) — overrides .env values
+  for (const [k, v] of Object.entries(process.env)) {
+    if (k.startsWith('VITE_')) {
+      envVars[k] = v
+    }
+  }
+
+  // 3) Build the esbuild define map
+  const defines = {}
+  for (const [k, v] of Object.entries(envVars)) {
+    defines[`import.meta.env.${k}`] = JSON.stringify(v)
+  }
+
   defines['import.meta.env.MODE'] = '"production"'
   defines['import.meta.env.DEV']  = 'false'
   defines['import.meta.env.PROD'] = 'true'
+  defines['import.meta.env.SSR']  = 'false'
   defines['process.env.NODE_ENV'] = '"production"'
+
+  // 4) Fallback: define import.meta.env as an object so any un-mapped
+  //    VITE_ access returns undefined instead of crashing the browser
+  defines['import.meta.env'] = JSON.stringify({
+    MODE: 'production', DEV: false, PROD: true, SSR: false,
+    ...envVars,
+  })
+
   return defines
 }
 
