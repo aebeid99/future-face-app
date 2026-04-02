@@ -392,6 +392,9 @@ function GanttPanel({ rows, columns, rowHeight = 36, onPendingChange, scrollRef,
 // ══════════════════════════════════════════════════════════════════════════════
 // LEFT PANE — OKR + KR + Initiative tree with ticket count summaries
 // ══════════════════════════════════════════════════════════════════════════════
+const ROW_H  = 36   // must match GanttPanel rowHeight prop
+const HDR_H  = ROW_H + 4  // OKR + quarter rows (40px)
+
 function LeftTree({
   rows, expanded, expandedKrs, toggleOkr, toggleKr,
   onEdit, onOpenIssue, dispatch, lang, statusLabel, allOkrs, width,
@@ -492,7 +495,8 @@ function LeftTree({
 
         if (row.type === 'quarter') {
           return (
-            <div key={row.key} className="flex items-center gap-2 px-3 py-2 bg-dark/40 border-b border-border/40 select-none">
+            <div key={row.key} className="flex items-center gap-2 px-3 bg-dark/40 border-b border-border/40 select-none"
+              style={{ height: HDR_H }}>
               <span className="text-[10px] font-bold uppercase tracking-wider text-ink-faint">{row.label}</span>
               <span className="text-[10px] text-ink-faint ml-auto">{row.avgProgress}% avg</span>
             </div>
@@ -511,25 +515,22 @@ function LeftTree({
                 onDrop={e => handleDrop(e, row)}
                 onDragEnd={() => { setDragKey(null); setOverKey(null) }}
                 className={[
-                  'flex items-center gap-2 px-3 py-2.5 border-b border-border/50 hover:bg-dark/20 cursor-pointer group transition-colors select-none',
+                  'flex items-center gap-2 px-3 border-b border-border/50 hover:bg-dark/20 cursor-pointer group transition-colors select-none overflow-hidden',
                   dragKey === row.key ? 'opacity-40' : '',
                   isDropTarget ? 'bg-gold/5' : '',
                 ].join(' ')}
+                style={{ height: HDR_H }}
                 onClick={() => toggleOkr(row.okrId)}>
                 <span className="text-ink-faint opacity-0 group-hover:opacity-60 cursor-grab active:cursor-grabbing shrink-0 transition-opacity"
                   onClick={e => e.stopPropagation()}><GripVertical size={12} /></span>
                 <button className="text-ink-faint shrink-0">
                   {expanded[row.okrId] ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                 </button>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1 min-w-0">
-                    <TypeChip type="objective" short />
-                    <p className="text-xs font-semibold text-ink truncate">{row.label}</p>
-                  </div>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    {row.owner && <Avatar name={row.owner} size="xs" />}
-                    <span className="text-[10px] text-ink-faint">{row.krsCount} KRs</span>
-                  </div>
+                <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                  <TypeChip type="objective" short />
+                  <p className="text-xs font-semibold text-ink truncate flex-1">{row.label}</p>
+                  {row.owner && <Avatar name={row.owner} size="xs" className="shrink-0" />}
+                  <span className="text-[10px] text-ink-faint shrink-0">{row.krsCount} KR{row.krsCount !== 1 ? 's' : ''}</span>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   {/* Ticket summary for this OKR */}
@@ -572,21 +573,20 @@ function LeftTree({
                 onDrop={e => handleDrop(e, row)}
                 onDragEnd={() => { setDragKey(null); setOverKey(null) }}
                 className={[
-                  'flex items-center gap-2 pl-5 pr-3 py-2 border-b border-border/40 hover:bg-dark/15 group transition-colors select-none',
+                  'flex items-center gap-2 pl-5 pr-3 border-b border-border/40 hover:bg-dark/15 group transition-colors select-none overflow-hidden',
                   dragKey === row.key ? 'opacity-40' : '',
                   isDropTarget ? 'bg-blue-500/5' : '',
                 ].join(' ')}
+                style={{ height: ROW_H }}
                 onClick={() => toggleKr(row.id)}>
                 <button className="text-ink-faint shrink-0">
                   {expandedKrs[row.id] ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
                 </button>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1 min-w-0">
-                    <TypeChip type="keyresult" short />
-                    <p className="text-[11px] font-medium text-ink truncate">{row.label}</p>
-                  </div>
+                <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                  <TypeChip type="keyresult" short />
+                  <p className="text-[11px] font-medium text-ink truncate flex-1">{row.label}</p>
                   {row.kr?.target && (
-                    <p className="text-[10px] text-ink-faint">{row.kr.current ?? row.kr.baseline ?? 0} / {row.kr.target} {row.kr.unit}</p>
+                    <span className="text-[10px] text-ink-faint shrink-0">{row.kr.current ?? 0}/{row.kr.target}{row.kr.unit}</span>
                   )}
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
@@ -634,12 +634,13 @@ function LeftTree({
                 onDrop={e => handleDrop(e, row)}
                 onDragEnd={() => { setDragKey(null); setOverKey(null) }}
                 className={[
-                  'flex items-center gap-2 border-b border-border/30 hover:bg-dark/10 group transition-colors',
-                  row.isUnderKr ? 'pl-9 pr-3 py-1.5' : 'pl-6 pr-3 py-2',
+                  'flex items-center gap-2 border-b border-border/30 hover:bg-dark/10 group transition-colors overflow-hidden',
+                  row.isUnderKr ? 'pl-9 pr-3' : 'pl-6 pr-3',
                   dragKey === row.key ? 'opacity-40' : '',
                   isDropTarget ? 'bg-blue-500/5' : '',
                   row.status === 'blocked' ? 'bg-red-500/5' : '',
-                ].join(' ')}>
+                ].join(' ')}
+                style={{ height: ROW_H }}>
                 <span className="text-ink-faint opacity-0 group-hover:opacity-60 cursor-grab active:cursor-grabbing shrink-0 transition-opacity"
                   onMouseDown={e => e.stopPropagation()}>
                   <GripVertical size={10} />
@@ -909,7 +910,7 @@ export default function RoadmapPage() {
   // ── Empty state ───────────────────────────────────────────────────────────
   if (liveOkrs.length === 0) {
     return (
-      <div className="space-y-5 animate-fade-in">
+      <div className="space-y-5 animate-fade-in" data-theme="dark">
         <div className="flex items-center justify-between">
           <p className="text-sm text-ink-muted">No objectives on the roadmap yet.</p>
           <Btn size="sm" icon={<Plus size={14} />} onClick={() => setNewOpen(true)}>New Objective</Btn>
@@ -953,7 +954,7 @@ export default function RoadmapPage() {
 
   // ── Full view ──────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-full animate-fade-in" style={{ minHeight: 0 }}>
+    <div className="flex flex-col h-full animate-fade-in" data-theme="dark" style={{ minHeight: 0 }}>
 
       {/* Toolbar */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
@@ -1096,7 +1097,7 @@ export default function RoadmapPage() {
           <GanttPanel
             rows={rows}
             columns={columns}
-            rowHeight={36}
+            rowHeight={ROW_H}
             onPendingChange={setPendingChange}
             scrollRef={ganttScrollRef}
             onScroll={onGanttScroll}
